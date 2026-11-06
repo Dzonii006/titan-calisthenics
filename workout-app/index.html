@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en" class="dark h-full bg-black">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Titan Calisthenics</title>
+
+  <!-- PWA & Mobile Web App Meta -->
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Titan" />
+  <link rel="icon" type="image/svg+xml" href="./icons/icon.svg" />
+  <link rel="apple-touch-icon" href="./icons/icon.svg" />
+
+  <!-- Local Offline Tailwind JS -->
+  <script src="./tailwind.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
+          },
+          scale: {
+            '98': '0.98'
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    /* Prevent rubber-band pulling on mobile */
+    html, body {
+      overscroll-behavior-y: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* Hide scrollbars for slick mobile tabs */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fadeIn {
+      animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+<body class="bg-black text-white antialiased h-full flex flex-col font-sans select-none">
+
+  <!-- Main View Container -->
+  <main id="main-content" class="flex-1 w-full max-w-lg mx-auto overflow-y-auto"></main>
+
+  <!-- Bottom Navigation Bar -->
+  <nav id="bottom-nav" class="fixed bottom-0 inset-x-0 bg-black/95 backdrop-blur-xl border-t border-zinc-900 pb-[env(safe-area-inset-bottom)] flex items-center justify-around z-40 max-w-lg mx-auto h-16">
+    <!-- Routines Tab -->
+    <button class="nav-tab-btn flex flex-col items-center justify-center flex-1 h-full text-emerald-400 font-bold transition" data-tab="routines">
+      <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+      <span class="text-[10px] tracking-wider uppercase">Routines</span>
+    </button>
+
+    <!-- Library Tab -->
+    <button class="nav-tab-btn flex flex-col items-center justify-center flex-1 h-full text-zinc-500 hover:text-zinc-300 transition" data-tab="exercises">
+      <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+      </svg>
+      <span class="text-[10px] tracking-wider uppercase">Library</span>
+    </button>
+
+    <!-- History Tab -->
+    <button class="nav-tab-btn flex flex-col items-center justify-center flex-1 h-full text-zinc-500 hover:text-zinc-300 transition" data-tab="history">
+      <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span class="text-[10px] tracking-wider uppercase">History</span>
+    </button>
+
+    <!-- Settings Tab -->
+    <button class="nav-tab-btn flex flex-col items-center justify-center flex-1 h-full text-zinc-500 hover:text-zinc-300 transition" data-tab="settings">
+      <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+      <span class="text-[10px] tracking-wider uppercase">Settings</span>
+    </button>
+  </nav>
+
+  <!-- App Bootstrap -->
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>

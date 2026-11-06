@@ -1,0 +1,18 @@
+{
+  "name": "Titan Calisthenics",
+  "short_name": "Titan",
+  "description": "Minimalist Calisthenics & Rings Workout Tracker with Auto-Paced Rep Timers",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+# Build outputs
+build/
+*.unaligned.apk
+*.aligned.apk
+*.idsig
+.temp/
+
+# Environment / System
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
