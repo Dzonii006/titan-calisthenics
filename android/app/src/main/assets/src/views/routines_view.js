@@ -11,81 +11,83 @@ export class RoutinesView {
     const programs = appState.programs;
 
     const html = `
-      <div class="p-5 pb-24 space-y-6 max-w-lg mx-auto animate-fadeIn">
+      <div class="p-5 pb-24 space-y-5 max-w-lg mx-auto animate-fadeIn">
         <!-- Header -->
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between pt-1">
           <div>
-            <span class="text-xs font-mono uppercase tracking-widest text-emerald-400">Calisthenics & Rings Split</span>
-            <h1 class="text-2xl font-black tracking-tight text-white mt-0.5">Workout Routines</h1>
+            <span class="text-[11px] font-mono uppercase tracking-widest text-zinc-400">Workout Plan</span>
+            <h1 class="text-2xl font-bold tracking-tight text-white mt-0.5">Routines</h1>
           </div>
-          <div class="px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-xs font-mono text-zinc-400">
+          <div class="px-2.5 py-1 rounded-lg bg-zinc-800/80 border border-zinc-700/60 text-xs font-mono text-zinc-300">
             4-Day Split
           </div>
         </div>
 
         <!-- Routine Cards -->
-        <div class="space-y-4">
+        <div class="space-y-3.5">
           ${programs.map(prog => {
             const exercises = prog.exerciseIds.map(id => appState.getExercise(id)).filter(Boolean);
             const totalSets = exercises.reduce((sum, e) => sum + (e.targetSets || 3), 0);
             const isExpanded = this.expandedRoutineId === prog.id;
 
             return `
-              <div class="bg-zinc-950 border ${isExpanded ? 'border-emerald-500/50' : 'border-zinc-800/80'} rounded-2xl overflow-hidden transition-all shadow-xl">
+              <div class="bg-[#18181b] border ${isExpanded ? 'border-zinc-600' : 'border-zinc-800'} rounded-2xl overflow-hidden transition-all shadow-sm">
                 <!-- Card Header -->
                 <div class="p-5 cursor-pointer flex items-start justify-between routine-card-toggle" data-prog-id="${prog.id}">
                   <div class="space-y-1">
-                    <span class="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold">
+                    <span class="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold">
                       ${prog.subtitle || 'Routine'}
                     </span>
                     <h3 class="text-lg font-bold text-white tracking-tight">${prog.name}</h3>
-                    <div class="flex items-center gap-3 text-xs text-zinc-400 font-mono pt-1">
+                    <div class="flex items-center gap-2 text-xs text-zinc-400 font-mono pt-1">
                       <span>${exercises.length} Exercises</span>
                       <span>•</span>
-                      <span>${totalSets} Total Sets</span>
+                      <span>${totalSets} Sets</span>
                     </div>
                   </div>
 
-                  <button class="p-2 text-zinc-400 hover:text-white transition transform ${isExpanded ? 'rotate-180' : ''}">
-                    ▼
+                  <button class="p-1.5 text-zinc-400 hover:text-white transition transform ${isExpanded ? 'rotate-180' : ''}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
                   </button>
                 </div>
 
                 <!-- Expanded Exercise List -->
                 ${isExpanded ? `
-                  <div class="px-5 pb-5 border-t border-zinc-900 pt-4 space-y-3">
+                  <div class="px-5 pb-5 border-t border-zinc-800/80 pt-4 space-y-3">
                     ${prog.warmup && prog.warmup.length > 0 ? `
-                      <div class="bg-zinc-900/60 rounded-xl p-3 border border-zinc-800/60 text-xs">
-                        <span class="text-emerald-400 font-mono font-semibold uppercase">Warm-up:</span>
-                        <span class="text-zinc-300 ml-1">${prog.warmup.join(' • ')}</span>
+                      <div class="bg-[#202024] rounded-xl p-3 border border-zinc-700/50 text-xs">
+                        <span class="text-zinc-200 font-mono font-semibold uppercase">Warm-up:</span>
+                        <span class="text-zinc-400 ml-1 leading-relaxed">${prog.warmup.join(' • ')}</span>
                       </div>
                     ` : ''}
 
-                    <div class="space-y-2">
+                    <div class="space-y-1.5">
                       ${exercises.map((ex, idx) => `
-                        <div class="flex items-center justify-between text-xs py-2 px-3 rounded-lg bg-zinc-900/40 border border-zinc-900">
-                          <div class="flex items-center gap-2">
-                            <span class="font-mono text-emerald-400 font-bold">${idx + 1}.</span>
+                        <div class="flex items-center justify-between text-xs py-2.5 px-3 rounded-xl bg-[#202024]/70 border border-zinc-800">
+                          <div class="flex items-center gap-2.5">
+                            <span class="font-mono text-zinc-400 font-semibold text-xs">${idx + 1}.</span>
                             <span class="text-zinc-200 font-medium">${ex.name}</span>
                           </div>
-                          <div class="font-mono text-zinc-400">
+                          <div class="font-mono text-zinc-400 text-[11px]">
                             ${ex.targetSets} × ${ex.targetValue}${ex.type === 'Isometric' ? 's' : ''}
-                            <span class="text-zinc-600">(${ex.restInterval}s rest)</span>
+                            <span class="text-zinc-500">(${ex.restInterval}s)</span>
                           </div>
                         </div>
                       `).join('')}
                     </div>
 
                     <!-- Start Button inside expanded -->
-                    <button class="btn-start-workout w-full mt-3 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 transition text-black font-black text-sm tracking-wide uppercase shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2" data-prog-id="${prog.id}">
-                      <span>Start ${prog.name.split('-')[0].trim()}</span>
+                    <button class="btn-start-workout w-full mt-3 py-3.5 rounded-xl bg-white hover:bg-zinc-200 active:scale-98 transition text-black font-bold text-sm tracking-wide uppercase flex items-center justify-center gap-2" data-prog-id="${prog.id}">
+                      <span>Start Workout</span>
                       <span>➔</span>
                     </button>
                   </div>
                 ` : `
                   <div class="px-5 pb-4 pt-0">
-                    <button class="btn-start-workout w-full py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 active:scale-98 transition text-emerald-400 font-bold text-xs tracking-wider uppercase flex items-center justify-center gap-2" data-prog-id="${prog.id}">
-                      <span>Quick Launch</span>
+                    <button class="btn-start-workout w-full py-2.5 rounded-xl bg-zinc-800/90 hover:bg-zinc-700 border border-zinc-700/80 active:scale-98 transition text-zinc-200 font-semibold text-xs tracking-wider uppercase flex items-center justify-center gap-2" data-prog-id="${prog.id}">
+                      <span>Start Routine</span>
                       <span>➔</span>
                     </button>
                   </div>
@@ -99,7 +101,6 @@ export class RoutinesView {
 
     this.container.innerHTML = html;
 
-    // Attach card toggles
     this.container.querySelectorAll('.routine-card-toggle').forEach(el => {
       el.onclick = () => {
         const id = Number(el.dataset.progId);
@@ -108,7 +109,6 @@ export class RoutinesView {
       };
     });
 
-    // Attach start workout buttons
     this.container.querySelectorAll('.btn-start-workout').forEach(btn => {
       btn.onclick = (e) => {
         e.stopPropagation();

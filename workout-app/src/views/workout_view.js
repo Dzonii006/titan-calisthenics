@@ -13,26 +13,34 @@ export class WorkoutView {
     this.currentSet = 1;
     this.totalSetsForCurrentEx = 3;
 
-    // Phases: 'WARMUP' | 'COUNTDOWN_5S' | 'ACTIVE' | 'REST' | 'SUMMARY'
+    // Phases: 'WARMUP' | 'COUNTDOWN_5S' | 'ACTIVE' | 'CONFIRM_SET' | 'REST' | 'SUMMARY'
     this.phase = 'WARMUP';
 
     // Timers & intervals
     this.activeTimer = null;
     this.workoutStartTime = null;
-    this.setStartTime = null;
+    this.warmupTimer = null;
+    this.warmupElapsedSeconds = 0;
+    this.isWarmupPaused = false;
 
     // Countdown / Rest timers
     this.countdownSeconds = 5;
+    this.is5sPaused = false;
     this.restRemainingSeconds = 60;
     this.restTotalSeconds = 60;
+    this.isRestPaused = false;
 
     // Active exercise state
     this.activeDuration = 0; // seconds elapsed in set
     this.currentRep = 0;
     this.repDuration = 3.5; // seconds per rep
-    this.repElapsed = 0; // seconds into current rep
+    this.repElapsed = 0;
     this.isPaused = false;
     this.currentWeight = 0; // kg
+
+    // Confirmation state
+    this.confirmedReps = 0;
+    this.confirmedWeight = 0;
 
     // Completed sets log for this session
     this.completedSets = [];
@@ -60,15 +68,21 @@ export class WorkoutView {
     this.currentSet = 1;
     this.completedSets = [];
     this.workoutStartTime = Date.now();
+    this.warmupElapsedSeconds = 0;
+    this.isWarmupPaused = false;
+    this.is5sPaused = false;
+    this.isRestPaused = false;
+    this.isPaused = false;
+
     this.phase = (this.program.warmup && this.program.warmup.length > 0) ? 'WARMUP' : 'COUNTDOWN_5S';
 
     wakeLock.request();
     sounds.init();
 
-    if (this.phase === 'COUNTDOWN_5S') {
-      this.start5sCountdown();
+    if (this.phase === 'WARMUP') {
+      this.startWarmupTimer();
     } else {
-      this.render();
+      this.start5sCountdown();
     }
   }
 
@@ -77,6 +91,10 @@ export class WorkoutView {
       clearInterval(this.activeTimer);
       this.activeTimer = null;
     }
+    if (this.warmupTimer) {
+      clearInterval(this.warmupTimer);
+      this.warmupTimer = null;
+    }
     wakeLock.release();
   }
 
@@ -84,20 +102,37 @@ export class WorkoutView {
     return this.exerciseList[this.currentExIndex];
   }
 
-  // --- PHASE TRANSITIONS ---
+  // --- WARMUP ---
+  startWarmupTimer() {
+    this.cleanup();
+    this.phase = 'WARMUP';
+    this.warmupTimer = setInterval(() => {
+      if (!this.isWarmupPaused) {
+        this.warmupElapsedSeconds++;
+        const el = this.container.querySelector('#warmup-timer-display');
+        if (el) el.innerText = this.formatTime(this.warmupElapsedSeconds);
+      }
+    }, 1000);
+    this.render();
+  }
 
+  // --- 5S COUNTDOWN ---
   start5sCountdown() {
     this.cleanup();
     this.phase = 'COUNTDOWN_5S';
     this.countdownSeconds = 5;
+    this.is5sPaused = false;
     this.render();
     sounds.playCountdownTick();
 
     this.activeTimer = setInterval(() => {
+      if (this.is5sPaused) return;
+
       this.countdownSeconds--;
       if (this.countdownSeconds > 0) {
         sounds.playCountdownTick();
-        this.render();
+        const digitEl = this.container.querySelector('#countdown-digit');
+        if (digitEl) digitEl.innerText = this.countdownSeconds;
       } else {
         clearInterval(this.activeTimer);
         this.activeTimer = null;
@@ -107,18 +142,17 @@ export class WorkoutView {
     }, 1000);
   }
 
+  // --- ACTIVE EXERCISE ---
   startActiveExercise() {
     this.cleanup();
     this.phase = 'ACTIVE';
     const ex = this.getCurrentExercise();
     this.totalSetsForCurrentEx = ex.targetSets || 3;
     this.currentWeight = ex.weight || 0;
-    this.setStartTime = Date.now();
     this.activeDuration = 0;
     this.isPaused = false;
 
     if (ex.type === 'Isometric') {
-      // Isometric hold countdown
       this.holdRemainingSeconds = ex.targetValue || 20;
       this.holdTotalSeconds = ex.targetValue || 20;
       this.render();
@@ -128,7 +162,6 @@ export class WorkoutView {
         this.activeDuration += 0.2;
         this.holdRemainingSeconds = Math.max(0, this.holdTotalSeconds - this.activeDuration);
 
-        // Sound cues for last 3 seconds
         if (Math.ceil(this.holdRemainingSeconds) <= 3 && Math.ceil(this.holdRemainingSeconds) > 0) {
           const sec = Math.ceil(this.holdRemainingSeconds);
           if (Math.abs(this.holdRemainingSeconds - sec) < 0.2) {
@@ -137,13 +170,12 @@ export class WorkoutView {
         }
 
         if (this.holdRemainingSeconds <= 0) {
-          this.completeSet();
+          this.promptSetConfirmation();
         } else {
           this.updateActiveDisplay();
         }
       }, 200);
     } else {
-      // Dynamic exercise with auto-pacer
       this.currentRep = 0;
       this.repDuration = ex.repDuration || 3.5;
       this.repElapsed = 0;
@@ -161,8 +193,7 @@ export class WorkoutView {
           sounds.playRepTick();
 
           if (this.currentRep >= this.targetReps) {
-            // Target reached!
-            this.completeSet();
+            this.promptSetConfirmation();
             return;
           }
         }
@@ -171,26 +202,37 @@ export class WorkoutView {
     }
   }
 
-  completeSet() {
+  // --- PROMPT SET CONFIRMATION ---
+  promptSetConfirmation() {
     this.cleanup();
+    this.phase = 'CONFIRM_SET';
+    const ex = this.getCurrentExercise();
+
+    this.confirmedReps = ex.type === 'Isometric' ? Math.round(this.activeDuration) : this.currentRep;
+    this.confirmedWeight = this.currentWeight;
+
+    this.render();
+  }
+
+  confirmAndFinishSet() {
     const ex = this.getCurrentExercise();
 
     // Log this set
-    const loggedReps = ex.type === 'Isometric' ? Math.round(this.activeDuration) : this.currentRep;
     this.completedSets.push({
       exerciseId: ex.id,
       exerciseName: ex.name,
       setIndex: this.currentSet,
-      reps: loggedReps,
-      weight: ex.weightTrackingEnabled ? this.currentWeight : 0,
+      reps: this.confirmedReps,
+      weight: ex.weightTrackingEnabled ? this.confirmedWeight : 0,
       duration: Math.round(this.activeDuration)
     });
 
     sounds.playSetLogged();
 
-    // Update exercise weight memory in appState
+    // Update weight memory
     if (ex.weightTrackingEnabled) {
-      ex.weight = this.currentWeight;
+      ex.weight = this.confirmedWeight;
+      this.currentWeight = this.confirmedWeight;
       appState.saveExercise(ex);
     }
 
@@ -199,27 +241,28 @@ export class WorkoutView {
       this.currentSet++;
       this.startRestTimer(ex.restInterval || 60);
     } else {
-      // Move to next exercise
       if (this.currentExIndex < this.exerciseList.length - 1) {
         this.currentExIndex++;
         this.currentSet = 1;
-        const nextEx = this.getCurrentExercise();
-        this.startRestTimer(ex.restInterval || 90, nextEx);
+        this.startRestTimer(ex.restInterval || 90);
       } else {
-        // Routine completed!
         this.finishWorkout();
       }
     }
   }
 
-  startRestTimer(seconds, nextEx = null) {
+  // --- REST TIMER ---
+  startRestTimer(seconds) {
     this.cleanup();
     this.phase = 'REST';
     this.restRemainingSeconds = seconds;
     this.restTotalSeconds = seconds;
+    this.isRestPaused = false;
     this.render();
 
     this.activeTimer = setInterval(() => {
+      if (this.isRestPaused) return;
+
       this.restRemainingSeconds--;
       if (this.restRemainingSeconds <= 0) {
         this.cleanup();
@@ -236,7 +279,6 @@ export class WorkoutView {
     this.phase = 'SUMMARY';
     const totalDurationSeconds = Math.round((Date.now() - this.workoutStartTime) / 1000);
 
-    // Save session to appState history
     appState.logWorkoutSession({
       programId: this.program.id,
       programName: this.program.name,
@@ -247,7 +289,7 @@ export class WorkoutView {
     this.render();
   }
 
-  // --- RENDERING ---
+  // --- RENDERING VIEWS ---
 
   render() {
     this.container.innerHTML = '';
@@ -258,6 +300,8 @@ export class WorkoutView {
       this.render5sCountdown();
     } else if (this.phase === 'ACTIVE') {
       this.renderActive();
+    } else if (this.phase === 'CONFIRM_SET') {
+      this.renderConfirmSet();
     } else if (this.phase === 'REST') {
       this.renderRest();
     } else if (this.phase === 'SUMMARY') {
@@ -268,44 +312,58 @@ export class WorkoutView {
   renderWarmup() {
     const ex = this.getCurrentExercise();
     const html = `
-      <div class="flex flex-col h-full bg-black text-white p-6 justify-between animate-fadeIn">
+      <div class="flex flex-col h-full bg-[#121214] text-zinc-100 p-6 justify-between select-none animate-fadeIn">
         <!-- Top bar -->
-        <div class="flex items-center justify-between border-b border-zinc-800 pb-4">
+        <div class="flex items-center justify-between border-b border-zinc-800/80 pb-4">
           <div>
-            <span class="text-xs font-mono uppercase tracking-widest text-emerald-400">Pre-Workout Warmup</span>
+            <span class="text-[11px] font-mono uppercase tracking-widest text-zinc-400">Pre-Workout Warmup</span>
             <h1 class="text-xl font-bold tracking-tight text-white mt-0.5">${this.program.name}</h1>
           </div>
-          <button id="btn-quit" class="px-3 py-1.5 rounded-lg text-sm text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800">
-            Exit
-          </button>
+          <div class="flex items-center gap-2">
+            <button id="btn-pause-warmup" class="px-3 py-1.5 rounded-lg text-xs font-mono font-medium ${this.isWarmupPaused ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-300 border border-zinc-700'}">
+              ${this.isWarmupPaused ? 'Resume' : 'Pause'}
+            </button>
+            <button id="btn-quit" class="px-3 py-1.5 rounded-lg text-xs font-mono text-zinc-400 hover:text-white bg-zinc-800/60 border border-zinc-700/60">
+              Exit
+            </button>
+          </div>
         </div>
 
-        <!-- Warmup List -->
+        <!-- Timer & Warmup list -->
         <div class="my-auto py-4 space-y-4 max-w-md mx-auto w-full">
-          <div class="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-5 shadow-2xl">
-            <h2 class="text-sm font-semibold text-zinc-300 uppercase tracking-wider mb-4 flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Recommended 3–4 Min Warmup
-            </h2>
-            <ul class="space-y-3">
+          <!-- Stopwatch header -->
+          <div class="text-center py-2">
+            <span id="warmup-timer-display" class="text-4xl font-mono font-bold tracking-tight text-zinc-200">
+              ${this.formatTime(this.warmupElapsedSeconds)}
+            </span>
+            <div class="text-[11px] font-mono text-zinc-400 mt-1 uppercase tracking-wider">
+              ${this.isWarmupPaused ? 'Warmup Paused' : 'Elapsed Warmup Time'}
+            </div>
+          </div>
+
+          <div class="bg-[#18181b] border border-zinc-800 rounded-2xl p-5 shadow-sm space-y-3">
+            <div class="text-xs font-semibold text-zinc-300 uppercase tracking-wider pb-1 border-b border-zinc-800/60">
+              Target Movements (3–4 min)
+            </div>
+            <ul class="space-y-3 pt-1">
               ${this.program.warmup.map((item, idx) => `
-                <li class="flex items-start gap-3 text-zinc-200 text-base">
-                  <span class="text-emerald-400 font-mono font-bold text-sm mt-0.5">${idx + 1}.</span>
+                <li class="flex items-start gap-3 text-sm text-zinc-200">
+                  <span class="font-mono text-xs font-bold text-zinc-400 mt-0.5">${idx + 1}.</span>
                   <span>${item}</span>
                 </li>
               `).join('')}
             </ul>
           </div>
 
-          <div class="text-center text-xs text-zinc-500">
-            Up First: <span class="text-zinc-300 font-medium">${ex.name}</span> (${ex.targetSets} sets × ${ex.targetValue}${ex.type === 'Isometric' ? 's' : ' reps'})
+          <div class="text-center text-xs text-zinc-400">
+            First up: <span class="text-zinc-200 font-semibold">${ex.name}</span> (${ex.targetSets} sets × ${ex.targetValue}${ex.type === 'Isometric' ? 's' : ' reps'})
           </div>
         </div>
 
-        <!-- Bottom Action -->
+        <!-- Action: Start Workout -->
         <div class="pt-4 max-w-md mx-auto w-full">
-          <button id="btn-start-warmup-done" class="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 transition text-black font-black text-lg tracking-wide uppercase shadow-lg shadow-emerald-500/20">
-            Start Workout
+          <button id="btn-warmup-done" class="w-full py-4 rounded-xl bg-white hover:bg-zinc-200 active:scale-98 transition text-black font-bold text-base tracking-wide uppercase">
+            Start First Exercise
           </button>
         </div>
       </div>
@@ -313,12 +371,19 @@ export class WorkoutView {
     this.container.innerHTML = html;
 
     this.container.querySelector('#btn-quit').onclick = () => {
-      if (confirm("Quit current workout?")) {
+      if (confirm("Exit workout?")) {
         this.cleanup();
         this.onExit();
       }
     };
-    this.container.querySelector('#btn-start-warmup-done').onclick = () => {
+
+    this.container.querySelector('#btn-pause-warmup').onclick = () => {
+      this.isWarmupPaused = !this.isWarmupPaused;
+      this.render();
+    };
+
+    this.container.querySelector('#btn-warmup-done').onclick = () => {
+      if (this.warmupTimer) clearInterval(this.warmupTimer);
       this.start5sCountdown();
     };
   }
@@ -326,33 +391,48 @@ export class WorkoutView {
   render5sCountdown() {
     const ex = this.getCurrentExercise();
     const html = `
-      <div class="flex flex-col h-full bg-black text-white p-6 justify-between items-center text-center select-none">
-        <!-- Top bar -->
-        <div class="w-full flex justify-between items-center border-b border-zinc-900 pb-3">
-          <span class="text-xs uppercase font-mono tracking-widest text-emerald-400">Get Ready</span>
-          <button id="btn-quit" class="text-xs text-zinc-500 hover:text-zinc-300 py-1 px-2.5 bg-zinc-900 rounded-md">Cancel</button>
+      <div class="flex flex-col h-full bg-[#121214] text-zinc-100 p-6 justify-between items-center text-center select-none animate-fadeIn">
+        <!-- Top bar with Pause & Cancel -->
+        <div class="w-full flex justify-between items-center border-b border-zinc-800/80 pb-3">
+          <span class="text-[11px] uppercase font-mono tracking-widest text-zinc-400">Get Ready</span>
+          <div class="flex items-center gap-2">
+            <button id="btn-pause-5s" class="text-xs font-mono py-1 px-3 rounded-lg ${this.is5sPaused ? 'bg-white text-black font-semibold' : 'bg-zinc-800 text-zinc-300 border border-zinc-700'}">
+              ${this.is5sPaused ? 'Resume' : 'Pause'}
+            </button>
+            <button id="btn-quit" class="text-xs font-mono text-zinc-400 hover:text-white py-1 px-3 bg-zinc-800/60 border border-zinc-700/60 rounded-lg">
+              Exit
+            </button>
+          </div>
         </div>
 
         <!-- Center 5-4-3-2-1 -->
         <div class="my-auto flex flex-col items-center justify-center">
-          <div class="text-zinc-400 text-sm font-medium tracking-wide uppercase mb-2">Set ${this.currentSet} of ${this.totalSetsForCurrentEx}</div>
-          <h2 class="text-2xl font-bold text-white mb-8 px-4">${ex.name}</h2>
+          <div class="text-zinc-400 text-xs font-medium tracking-wider uppercase mb-2">
+            Set ${this.currentSet} of ${this.totalSetsForCurrentEx}
+          </div>
+          <h2 class="text-2xl font-bold text-white mb-8 px-4 tracking-tight">${ex.name}</h2>
           
-          <div class="relative flex items-center justify-center w-52 h-52 rounded-full border-4 border-zinc-800 bg-zinc-950/70 shadow-2xl">
-            <span class="text-8xl font-black font-mono tracking-tighter text-emerald-400 scale-100 transition-all duration-300">
+          <div class="relative flex items-center justify-center w-52 h-52 rounded-full border border-zinc-700 bg-[#18181b] shadow-inner">
+            <span id="countdown-digit" class="text-8xl font-mono font-bold text-white tracking-tighter">
               ${this.countdownSeconds}
             </span>
           </div>
 
-          <p class="text-xs text-zinc-400 mt-8 max-w-xs leading-relaxed italic">
-            "${ex.cue || 'Stay tight, brace core and maintain full range of motion.'}"
+          ${this.is5sPaused ? `
+            <div class="mt-4 text-xs font-mono uppercase tracking-wider text-zinc-400">
+              Countdown Paused
+            </div>
+          ` : ''}
+
+          <p class="text-xs text-zinc-400 mt-6 max-w-xs leading-relaxed italic">
+            "${ex.cue || 'Stay tight, brace core and control your reps.'}"
           </p>
         </div>
 
         <!-- Quick Skip -->
         <div class="w-full max-w-xs">
-          <button id="btn-skip-5s" class="w-full py-3.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white font-medium text-sm tracking-wider uppercase transition">
-            Skip Countdown & Start
+          <button id="btn-skip-5s" class="w-full py-3.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 font-medium text-xs tracking-wider uppercase transition">
+            Skip Countdown & Begin
           </button>
         </div>
       </div>
@@ -363,6 +443,12 @@ export class WorkoutView {
       this.cleanup();
       this.onExit();
     };
+
+    this.container.querySelector('#btn-pause-5s').onclick = () => {
+      this.is5sPaused = !this.is5sPaused;
+      this.render();
+    };
+
     this.container.querySelector('#btn-skip-5s').onclick = () => {
       sounds.playGoTone();
       this.startActiveExercise();
@@ -374,26 +460,26 @@ export class WorkoutView {
     const isIsometric = ex.type === 'Isometric';
 
     const html = `
-      <div class="flex flex-col h-full bg-black text-white p-5 justify-between select-none">
-        <!-- Top bar info -->
+      <div class="flex flex-col h-full bg-[#121214] text-zinc-100 p-5 justify-between select-none animate-fadeIn">
+        <!-- Top bar -->
         <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3">
           <div>
             <div class="flex items-center gap-2">
-              <span class="text-xs font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700/80 font-medium">
                 ${ex.group}
               </span>
-              <span class="text-xs font-mono text-zinc-400">
+              <span class="text-[11px] font-mono text-zinc-400">
                 Exercise ${this.currentExIndex + 1}/${this.exerciseList.length}
               </span>
             </div>
-            <h1 class="text-xl font-black tracking-tight text-white mt-1">${ex.name}</h1>
+            <h1 class="text-xl font-bold tracking-tight text-white mt-1">${ex.name}</h1>
           </div>
 
           <div class="flex items-center gap-2">
-            <button id="btn-pause" class="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs font-mono">
-              ${this.isPaused ? 'RESUME' : 'PAUSE'}
+            <button id="btn-pause" class="px-3 py-1.5 rounded-lg ${this.isPaused ? 'bg-white text-black font-semibold' : 'bg-zinc-800 text-zinc-300 border border-zinc-700'} text-xs font-mono">
+              ${this.isPaused ? 'Resume' : 'Pause'}
             </button>
-            <button id="btn-quit" class="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-rose-400 text-xs">
+            <button id="btn-quit" class="p-1.5 rounded-lg bg-zinc-800/60 border border-zinc-700/60 text-zinc-400 hover:text-white text-xs">
               ✕
             </button>
           </div>
@@ -401,83 +487,78 @@ export class WorkoutView {
 
         <!-- Center Counter Display -->
         <div class="my-auto flex flex-col items-center justify-center py-2 max-w-md mx-auto w-full">
-          <!-- Set badge -->
-          <div class="text-zinc-400 text-sm font-semibold tracking-wider uppercase mb-3">
-            Set <span class="text-emerald-400 font-bold">${this.currentSet}</span> of ${this.totalSetsForCurrentEx}
+          <div class="text-zinc-400 text-xs font-medium tracking-wider uppercase mb-3">
+            Set <span class="text-white font-bold">${this.currentSet}</span> of ${this.totalSetsForCurrentEx}
           </div>
 
           ${isIsometric ? `
             <!-- Isometric Hold Timer -->
-            <div class="relative w-64 h-64 flex flex-col items-center justify-center rounded-full border-4 border-emerald-500/30 bg-zinc-950 shadow-2xl">
-              <span id="active-hold-digits" class="text-7xl font-black font-mono text-emerald-400 tracking-tight">
+            <div class="relative w-64 h-64 flex flex-col items-center justify-center rounded-full border border-zinc-700 bg-[#18181b] shadow-sm">
+              <span id="active-hold-digits" class="text-7xl font-mono font-bold text-white tracking-tight">
                 ${Math.ceil(this.holdRemainingSeconds)}s
               </span>
-              <span class="text-xs uppercase font-mono tracking-widest text-zinc-400 mt-1">HOLD TARGET: ${ex.targetValue}s</span>
+              <span class="text-[11px] uppercase font-mono tracking-widest text-zinc-400 mt-2">Target Hold: ${ex.targetValue}s</span>
             </div>
           ` : `
             <!-- Dynamic Auto-Paced Rep Counter -->
             <div class="w-full flex flex-col items-center">
-              <div class="relative w-64 h-64 flex flex-col items-center justify-center rounded-full border-4 border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden">
-                <!-- Rep duration fill ring / pulse -->
-                <div id="rep-progress-fill" class="absolute inset-0 bg-emerald-500/10 origin-bottom transition-all duration-100" style="height: 0%;"></div>
+              <div class="relative w-64 h-64 flex flex-col items-center justify-center rounded-full border border-zinc-700 bg-[#18181b] shadow-sm overflow-hidden">
+                <!-- Rep duration fill bar -->
+                <div id="rep-progress-fill" class="absolute inset-x-0 bottom-0 bg-zinc-700/30 transition-all duration-100" style="height: 0%;"></div>
 
                 <div class="relative z-10 flex flex-col items-center">
-                  <span id="active-rep-count" class="text-8xl font-black font-mono tracking-tight text-white">
+                  <span id="active-rep-count" class="text-8xl font-mono font-bold tracking-tight text-white">
                     ${this.currentRep}
                   </span>
-                  <span class="text-xs uppercase font-mono tracking-widest text-zinc-400 mt-1">
-                    TARGET: <span class="text-zinc-200 font-bold">${this.targetReps} REPS</span>
+                  <span class="text-[11px] uppercase font-mono tracking-widest text-zinc-400 mt-1">
+                    Target: <span class="text-zinc-200 font-semibold">${this.targetReps} reps</span>
                   </span>
-                  <div class="mt-2 text-xs font-mono text-emerald-400 flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span id="rep-pace-indicator">Rep pace: ${this.repDuration}s</span>
+                  <div class="mt-2 text-xs font-mono text-zinc-400 flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full ${this.isPaused ? 'bg-zinc-600' : 'bg-white animate-pulse'}"></span>
+                    <span id="rep-pace-indicator">${this.isPaused ? 'Paused' : `Tempo: ${this.repDuration}s / rep`}</span>
                   </div>
                 </div>
               </div>
 
               <!-- Manual Rep Adjustment Buttons -->
               <div class="flex items-center gap-3 mt-4">
-                <button id="btn-rep-minus" class="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white text-xl font-bold active:scale-95 transition">
+                <button id="btn-rep-minus" class="w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white text-xl font-bold active:scale-95 transition">
                   -1
                 </button>
-                <span class="text-xs font-mono uppercase text-zinc-500 px-2">Tap to Adjust Reps</span>
-                <button id="btn-rep-plus" class="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white text-xl font-bold active:scale-95 transition">
+                <span class="text-xs font-mono uppercase text-zinc-400 px-2">Adjust Reps</span>
+                <button id="btn-rep-plus" class="w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white text-xl font-bold active:scale-95 transition">
                   +1
                 </button>
               </div>
             </div>
           `}
 
-          <!-- Weight Input Bar (Added weight / Dumbbells) -->
-          <div class="mt-5 w-full bg-zinc-950 border border-zinc-800/90 rounded-2xl p-3.5 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="text-lg">⚖️</span>
-              <div>
-                <div class="text-xs font-semibold uppercase tracking-wider text-zinc-400">Weight (${appState.settings.weightUnit})</div>
-                <div class="text-xs text-zinc-500">${ex.weightTrackingEnabled ? 'Added / Dumbbell' : 'Bodyweight'}</div>
-              </div>
+          <!-- Weight Input Bar -->
+          <div class="mt-5 w-full bg-[#18181b] border border-zinc-800 rounded-xl p-3.5 flex items-center justify-between">
+            <div>
+              <div class="text-xs font-medium uppercase tracking-wider text-zinc-300">Weight (${appState.settings.weightUnit})</div>
+              <div class="text-[11px] text-zinc-500">${ex.weightTrackingEnabled ? 'Added / Dumbbell' : 'Bodyweight'}</div>
             </div>
 
             <div class="flex items-center gap-2">
-              <button id="btn-weight-minus" class="w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 font-bold active:scale-90">-2.5</button>
-              <input id="input-weight" type="number" step="0.5" min="0" value="${this.currentWeight}" class="w-16 bg-black border border-zinc-700 text-center font-mono font-bold text-white text-base py-1 rounded-lg focus:outline-none focus:border-emerald-500" />
-              <button id="btn-weight-plus" class="w-9 h-9 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 font-bold active:scale-90">+2.5</button>
+              <button id="btn-weight-minus" class="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 font-bold active:scale-95 text-xs">-2.5</button>
+              <input id="input-weight" type="number" step="0.5" min="0" value="${this.currentWeight}" class="w-16 bg-[#121214] border border-zinc-700 text-center font-mono font-semibold text-white text-sm py-1 rounded-lg focus:outline-none focus:border-zinc-500" />
+              <button id="btn-weight-plus" class="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 font-bold active:scale-95 text-xs">+2.5</button>
             </div>
           </div>
 
           <!-- Form cue reminder -->
           ${ex.cue ? `
-            <div class="mt-3 text-center text-xs text-zinc-400 bg-zinc-900/50 border border-zinc-800/50 rounded-xl px-3 py-2 w-full">
-              💡 <span class="italic text-zinc-300">${ex.cue}</span>
+            <div class="mt-3 text-center text-xs text-zinc-400 bg-zinc-900/60 border border-zinc-800/80 rounded-xl px-3 py-2 w-full leading-relaxed">
+              <span class="text-zinc-300 font-medium">Form Cue:</span> <span>${ex.cue}</span>
             </div>
           ` : ''}
         </div>
 
         <!-- Bottom Action: Finish Set -->
         <div class="pt-2 max-w-md mx-auto w-full">
-          <button id="btn-complete-set" class="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 transition text-black font-black text-lg tracking-wide uppercase shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
-            <span>Complete Set</span>
-            <span class="text-xs bg-black/20 text-black px-2 py-0.5 rounded-full font-mono">Next ➔</span>
+          <button id="btn-complete-set" class="w-full py-4 rounded-xl bg-white hover:bg-zinc-200 active:scale-98 transition text-black font-bold text-base tracking-wide uppercase">
+            Complete Set
           </button>
         </div>
       </div>
@@ -485,9 +566,8 @@ export class WorkoutView {
 
     this.container.innerHTML = html;
 
-    // Attach listeners
     this.container.querySelector('#btn-quit').onclick = () => {
-      if (confirm("Exit workout in progress?")) {
+      if (confirm("Exit workout?")) {
         this.cleanup();
         this.onExit();
       }
@@ -496,17 +576,13 @@ export class WorkoutView {
     const btnPause = this.container.querySelector('#btn-pause');
     btnPause.onclick = () => {
       this.isPaused = !this.isPaused;
-      btnPause.innerText = this.isPaused ? 'RESUME' : 'PAUSE';
-      btnPause.className = this.isPaused 
-        ? 'p-2 rounded-lg bg-emerald-500 text-black font-bold text-xs font-mono'
-        : 'p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs font-mono';
+      this.render();
     };
 
     this.container.querySelector('#btn-complete-set').onclick = () => {
-      this.completeSet();
+      this.promptSetConfirmation();
     };
 
-    // Weight inputs
     const inputWeight = this.container.querySelector('#input-weight');
     inputWeight.onchange = (e) => {
       this.currentWeight = Math.max(0, parseFloat(e.target.value) || 0);
@@ -520,7 +596,6 @@ export class WorkoutView {
       inputWeight.value = this.currentWeight;
     };
 
-    // Dynamic rep adjusters
     if (!isIsometric) {
       this.container.querySelector('#btn-rep-minus').onclick = () => {
         this.currentRep = Math.max(0, this.currentRep - 1);
@@ -552,58 +627,172 @@ export class WorkoutView {
     }
   }
 
+  // --- CONFIRM SET DIALOG (Clean, focused) ---
+  renderConfirmSet() {
+    const ex = this.getCurrentExercise();
+    const isIsometric = ex.type === 'Isometric';
+
+    const html = `
+      <div class="flex flex-col h-full bg-[#121214] text-zinc-100 p-6 justify-between select-none animate-fadeIn">
+        <!-- Top bar -->
+        <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3">
+          <span class="text-[11px] uppercase font-mono tracking-widest text-zinc-400">Confirm Results</span>
+          <button id="btn-cancel-confirm" class="text-xs font-mono text-zinc-400 hover:text-white py-1 px-3 bg-zinc-800 border border-zinc-700 rounded-lg">
+            Resume Set
+          </button>
+        </div>
+
+        <!-- Center Confirm Card -->
+        <div class="my-auto max-w-sm mx-auto w-full space-y-6">
+          <div class="text-center">
+            <span class="text-xs font-mono uppercase tracking-wider text-zinc-400">Set ${this.currentSet} of ${this.totalSetsForCurrentEx} Completed</span>
+            <h2 class="text-2xl font-bold text-white mt-1">${ex.name}</h2>
+          </div>
+
+          <!-- Reps / Hold Seconds Confirm -->
+          <div class="bg-[#18181b] border border-zinc-800 rounded-2xl p-5 text-center space-y-3">
+            <div class="text-xs font-mono uppercase tracking-wider text-zinc-400">
+              ${isIsometric ? 'Hold Duration (seconds)' : 'Completed Reps'}
+            </div>
+
+            <div class="flex items-center justify-center gap-4">
+              <button id="btn-confirm-minus" class="w-14 h-14 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white text-2xl font-bold active:scale-95 transition">
+                -
+              </button>
+              <div class="w-28 text-center">
+                <span id="confirm-rep-val" class="text-5xl font-mono font-bold text-white tracking-tight">
+                  ${this.confirmedReps}
+                </span>
+                <span class="block text-xs font-mono text-zinc-400 mt-1">
+                  Target: ${ex.targetValue}${isIsometric ? 's' : ''}
+                </span>
+              </div>
+              <button id="btn-confirm-plus" class="w-14 h-14 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white text-2xl font-bold active:scale-95 transition">
+                +
+              </button>
+            </div>
+          </div>
+
+          <!-- Weight Confirm (if enabled) -->
+          <div class="bg-[#18181b] border border-zinc-800 rounded-2xl p-4 flex items-center justify-between">
+            <div>
+              <div class="text-xs font-medium text-zinc-300 uppercase tracking-wider">Weight Used</div>
+              <div class="text-[11px] text-zinc-500">${appState.settings.weightUnit}</div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button id="btn-confirm-weight-minus" class="w-9 h-9 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 font-bold text-xs active:scale-95">-2.5</button>
+              <input id="input-confirm-weight" type="number" step="0.5" min="0" value="${this.confirmedWeight}" class="w-16 bg-[#121214] border border-zinc-700 text-center font-mono font-semibold text-white text-sm py-1.5 rounded-lg focus:outline-none" />
+              <button id="btn-confirm-weight-plus" class="w-9 h-9 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 font-bold text-xs active:scale-95">+2.5</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Button -->
+        <div class="pt-4 max-w-sm mx-auto w-full">
+          <button id="btn-confirm-save" class="w-full py-4 rounded-xl bg-white hover:bg-zinc-200 active:scale-98 transition text-black font-bold text-base tracking-wide uppercase">
+            Confirm & Start Rest (${ex.restInterval || 60}s)
+          </button>
+        </div>
+      </div>
+    `;
+
+    this.container.innerHTML = html;
+
+    const repValEl = this.container.querySelector('#confirm-rep-val');
+    this.container.querySelector('#btn-confirm-minus').onclick = () => {
+      this.confirmedReps = Math.max(0, this.confirmedReps - 1);
+      repValEl.innerText = this.confirmedReps;
+    };
+    this.container.querySelector('#btn-confirm-plus').onclick = () => {
+      this.confirmedReps++;
+      repValEl.innerText = this.confirmedReps;
+    };
+
+    const inputWeight = this.container.querySelector('#input-confirm-weight');
+    inputWeight.onchange = (e) => {
+      this.confirmedWeight = Math.max(0, parseFloat(e.target.value) || 0);
+    };
+    this.container.querySelector('#btn-confirm-weight-minus').onclick = () => {
+      this.confirmedWeight = Math.max(0, this.confirmedWeight - 2.5);
+      inputWeight.value = this.confirmedWeight;
+    };
+    this.container.querySelector('#btn-confirm-weight-plus').onclick = () => {
+      this.confirmedWeight = this.confirmedWeight + 2.5;
+      inputWeight.value = this.confirmedWeight;
+    };
+
+    this.container.querySelector('#btn-cancel-confirm').onclick = () => {
+      this.phase = 'ACTIVE';
+      this.render();
+    };
+
+    this.container.querySelector('#btn-confirm-save').onclick = () => {
+      this.confirmAndFinishSet();
+    };
+  }
+
+  // --- REST VIEW ---
   renderRest() {
     const nextEx = this.getCurrentExercise();
     const isNewExercise = this.currentSet === 1;
 
     const html = `
-      <div class="flex flex-col h-full bg-black text-white p-6 justify-between select-none">
-        <!-- Top bar -->
-        <div class="flex items-center justify-between border-b border-zinc-900 pb-3">
-          <span class="text-xs uppercase font-mono tracking-widest text-emerald-400">Rest Interval</span>
-          <button id="btn-quit" class="text-xs text-zinc-500 hover:text-zinc-300 py-1 px-2.5 bg-zinc-900 rounded-md">Quit</button>
+      <div class="flex flex-col h-full bg-[#121214] text-zinc-100 p-6 justify-between select-none animate-fadeIn">
+        <!-- Top bar with Pause & Quit -->
+        <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3">
+          <span class="text-[11px] uppercase font-mono tracking-widest text-zinc-400">Rest Period</span>
+          <div class="flex items-center gap-2">
+            <button id="btn-pause-rest" class="text-xs font-mono py-1 px-3 rounded-lg ${this.isRestPaused ? 'bg-white text-black font-semibold' : 'bg-zinc-800 text-zinc-300 border border-zinc-700'}">
+              ${this.isRestPaused ? 'Resume' : 'Pause'}
+            </button>
+            <button id="btn-quit" class="text-xs font-mono text-zinc-400 hover:text-white py-1 px-3 bg-zinc-800/60 border border-zinc-700/60 rounded-lg">
+              Exit
+            </button>
+          </div>
         </div>
 
-        <!-- Center: Big Rest Timer from CalisthenicsMemory -->
+        <!-- Big Rest Timer -->
         <div class="my-auto flex flex-col items-center justify-center py-4">
-          <!-- Big Circular Rest Timer -->
-          <div class="relative w-72 h-72 flex flex-col items-center justify-center rounded-full border-4 border-zinc-800 bg-zinc-950 shadow-2xl">
-            <span id="rest-digits" class="text-8xl font-black font-mono tracking-tighter text-white">
+          <div class="relative w-72 h-72 flex flex-col items-center justify-center rounded-full border border-zinc-700 bg-[#18181b] shadow-sm">
+            <span id="rest-digits" class="text-8xl font-mono font-bold tracking-tighter text-white">
               ${this.formatTime(this.restRemainingSeconds)}
             </span>
-            <span class="text-xs uppercase font-mono tracking-widest text-zinc-500 mt-2">REST & RECOVER</span>
+            <span class="text-[11px] uppercase font-mono tracking-widest text-zinc-400 mt-2">
+              ${this.isRestPaused ? 'Rest Paused' : 'Recovery Timer'}
+            </span>
           </div>
 
-          <!-- Quick time adjust buttons -->
-          <div class="flex items-center gap-3 mt-6">
-            <button id="btn-rest-minus" class="px-4 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs font-mono font-bold active:scale-95">
+          <!-- Adjust buttons -->
+          <div class="flex items-center gap-2.5 mt-6">
+            <button id="btn-rest-minus" class="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-xs font-mono font-medium active:scale-95">
               -15s
             </button>
-            <button id="btn-rest-plus" class="px-4 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs font-mono font-bold active:scale-95">
+            <button id="btn-rest-plus" class="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-xs font-mono font-medium active:scale-95">
               +15s
             </button>
-            <button id="btn-rest-plus30" class="px-4 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs font-mono font-bold active:scale-95">
+            <button id="btn-rest-plus30" class="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-xs font-mono font-medium active:scale-95">
               +30s
             </button>
           </div>
 
-          <!-- Up Next preview card -->
-          <div class="mt-8 bg-zinc-950 border border-zinc-800/80 rounded-2xl p-4 w-full max-w-sm text-left">
-            <div class="text-xs font-mono uppercase tracking-wider text-emerald-400">
+          <!-- Up Next card -->
+          <div class="mt-8 bg-[#18181b] border border-zinc-800 rounded-2xl p-4 w-full max-w-sm text-left">
+            <div class="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
               ${isNewExercise ? 'Next Exercise' : 'Next Set'}
             </div>
             <div class="text-base font-bold text-white mt-1">${nextEx.name}</div>
-            <div class="text-xs text-zinc-400 mt-0.5">
-              Set ${this.currentSet} of ${this.totalSetsForCurrentEx} • Target: ${nextEx.targetValue} ${nextEx.type === 'Isometric' ? 'seconds' : 'reps'}
+            <div class="text-xs text-zinc-400 mt-0.5 font-mono">
+              Set ${this.currentSet} of ${this.totalSetsForCurrentEx} • Target: ${nextEx.targetValue}${nextEx.type === 'Isometric' ? 's' : ' reps'}
               ${nextEx.weightTrackingEnabled && nextEx.weight > 0 ? `• ${nextEx.weight} ${appState.settings.weightUnit}` : ''}
             </div>
           </div>
         </div>
 
-        <!-- Bottom Action: Skip Rest -->
+        <!-- Action: Skip Rest -->
         <div class="pt-2 max-w-md mx-auto w-full">
-          <button id="btn-skip-rest" class="w-full py-4 rounded-2xl bg-zinc-800 hover:bg-zinc-700 active:scale-98 transition text-white font-bold text-base tracking-wide uppercase">
-            Skip Rest (Start 5s Countdown)
+          <button id="btn-skip-rest" class="w-full py-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 font-bold text-sm tracking-wide uppercase active:scale-98 transition">
+            Skip Rest ➔ Start 5s
           </button>
         </div>
       </div>
@@ -616,6 +805,10 @@ export class WorkoutView {
         this.cleanup();
         this.onExit();
       }
+    };
+    this.container.querySelector('#btn-pause-rest').onclick = () => {
+      this.isRestPaused = !this.isRestPaused;
+      this.render();
     };
     this.container.querySelector('#btn-skip-rest').onclick = () => {
       this.cleanup();
@@ -643,56 +836,54 @@ export class WorkoutView {
     }
   }
 
+  // --- SUMMARY VIEW ---
   renderSummary() {
     const totalDurationSeconds = Math.round((Date.now() - this.workoutStartTime) / 1000);
     const totalVolume = this.completedSets.reduce((sum, s) => sum + (s.weight * s.reps), 0);
     const totalReps = this.completedSets.reduce((sum, s) => sum + s.reps, 0);
 
     const html = `
-      <div class="flex flex-col h-full bg-black text-white p-6 justify-between select-none animate-fadeIn">
+      <div class="flex flex-col h-full bg-[#121214] text-zinc-100 p-6 justify-between select-none animate-fadeIn">
         <div class="text-center pt-6">
-          <div class="w-20 h-20 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
-            <span class="text-4xl">🏆</span>
-          </div>
-          <span class="text-xs font-mono uppercase tracking-widest text-emerald-400">Workout Completed</span>
-          <h1 class="text-2xl font-black text-white mt-1">${this.program.name}</h1>
+          <span class="text-[11px] font-mono uppercase tracking-widest text-zinc-400">Workout Completed</span>
+          <h1 class="text-2xl font-bold tracking-tight text-white mt-1">${this.program.name}</h1>
           <p class="text-xs text-zinc-500 mt-1">${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
         </div>
 
         <!-- Stats Grid -->
         <div class="my-auto grid grid-cols-2 gap-3 max-w-sm mx-auto w-full py-4">
-          <div class="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-4 text-center">
-            <div class="text-xs font-mono uppercase text-zinc-500">Duration</div>
-            <div class="text-2xl font-black font-mono text-white mt-1">${this.formatMinutes(totalDurationSeconds)}</div>
+          <div class="bg-[#18181b] border border-zinc-800 rounded-2xl p-4 text-center">
+            <div class="text-[11px] font-mono uppercase text-zinc-400">Duration</div>
+            <div class="text-2xl font-mono font-bold text-white mt-1">${this.formatMinutes(totalDurationSeconds)}</div>
           </div>
-          <div class="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-4 text-center">
-            <div class="text-xs font-mono uppercase text-zinc-500">Sets Finished</div>
-            <div class="text-2xl font-black font-mono text-emerald-400 mt-1">${this.completedSets.length}</div>
+          <div class="bg-[#18181b] border border-zinc-800 rounded-2xl p-4 text-center">
+            <div class="text-[11px] font-mono uppercase text-zinc-400">Completed Sets</div>
+            <div class="text-2xl font-mono font-bold text-white mt-1">${this.completedSets.length}</div>
           </div>
-          <div class="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-4 text-center">
-            <div class="text-xs font-mono uppercase text-zinc-500">Total Reps / Sec</div>
-            <div class="text-2xl font-black font-mono text-white mt-1">${totalReps}</div>
+          <div class="bg-[#18181b] border border-zinc-800 rounded-2xl p-4 text-center">
+            <div class="text-[11px] font-mono uppercase text-zinc-400">Total Reps</div>
+            <div class="text-2xl font-mono font-bold text-white mt-1">${totalReps}</div>
           </div>
-          <div class="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-4 text-center">
-            <div class="text-xs font-mono uppercase text-zinc-500">Volume Moved</div>
-            <div class="text-2xl font-black font-mono text-white mt-1">${totalVolume} ${appState.settings.weightUnit}</div>
+          <div class="bg-[#18181b] border border-zinc-800 rounded-2xl p-4 text-center">
+            <div class="text-[11px] font-mono uppercase text-zinc-400">Volume Moved</div>
+            <div class="text-2xl font-mono font-bold text-white mt-1">${totalVolume} ${appState.settings.weightUnit}</div>
           </div>
         </div>
 
-        <!-- Completed Sets Breakdown -->
+        <!-- Sets list -->
         <div class="max-w-sm mx-auto w-full max-h-40 overflow-y-auto space-y-1.5 pr-1">
-          ${this.completedSets.map((s, idx) => `
-            <div class="flex items-center justify-between text-xs py-1.5 px-3 rounded-lg bg-zinc-950 border border-zinc-900">
-              <span class="text-zinc-300 font-medium truncate max-w-[180px]">${s.exerciseName} (Set ${s.setIndex})</span>
-              <span class="font-mono text-zinc-400 font-semibold">${s.reps} reps ${s.weight > 0 ? `@ ${s.weight}kg` : ''}</span>
+          ${this.completedSets.map((s) => `
+            <div class="flex items-center justify-between text-xs py-2 px-3 rounded-xl bg-[#18181b] border border-zinc-800/80">
+              <span class="text-zinc-200 font-medium truncate max-w-[180px]">${s.exerciseName} (Set ${s.setIndex})</span>
+              <span class="font-mono text-zinc-400">${s.reps} reps ${s.weight > 0 ? `@ ${s.weight}kg` : ''}</span>
             </div>
           `).join('')}
         </div>
 
         <!-- Done Button -->
         <div class="pt-4 max-w-sm mx-auto w-full">
-          <button id="btn-finish-summary" class="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-98 transition text-black font-black text-lg tracking-wide uppercase shadow-lg shadow-emerald-500/20">
-            Done & Return to Routines
+          <button id="btn-finish-summary" class="w-full py-4 rounded-xl bg-white hover:bg-zinc-200 active:scale-98 transition text-black font-bold text-base tracking-wide uppercase">
+            Finish & Return to Routines
           </button>
         </div>
       </div>
@@ -705,7 +896,6 @@ export class WorkoutView {
   }
 
   // --- HELPERS ---
-
   formatTime(totalSec) {
     const mins = Math.floor(totalSec / 60);
     const secs = totalSec % 60;

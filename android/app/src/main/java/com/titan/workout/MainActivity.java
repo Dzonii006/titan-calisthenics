@@ -33,7 +33,7 @@ public class MainActivity extends Activity {
         settings.setLoadWithOverviewMode(true);
         settings.setUseWideViewPort(true);
 
-        webView.setBackgroundColor(0xFF000000); // Pure black OLED background
+        webView.setBackgroundColor(0xFF121214);
         webView.setWebChromeClient(new WebChromeClient());
         webView.setWebViewClient(new WebViewClient());
 

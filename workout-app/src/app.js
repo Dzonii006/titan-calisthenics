@@ -68,7 +68,7 @@ class App {
     navButtons.forEach(btn => {
       const isCurrent = btn.dataset.tab === this.currentTab;
       btn.className = `nav-tab-btn flex flex-col items-center justify-center py-2 flex-1 transition-all ${
-        isCurrent ? 'text-emerald-400 font-bold scale-105' : 'text-zinc-500 hover:text-zinc-300'
+        isCurrent ? 'text-white font-medium' : 'text-zinc-500 hover:text-zinc-300'
       }`;
     });
   }

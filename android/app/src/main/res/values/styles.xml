@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="AppTheme" parent="@android:style/Theme.NoTitleBar">
-        <item name="android:windowBackground">#000000</item>
+        <item name="android:windowBackground">#121214</item>
     </style>
 </resources>
