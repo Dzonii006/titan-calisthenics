@@ -11,7 +11,7 @@ export class RoutinesView {
     const programs = appState.programs;
 
     const html = `
-      <div class="p-5 pb-24 space-y-5 max-w-lg mx-auto animate-fadeIn">
+      <div class="p-5 pb-24 space-y-5 max-w-lg mx-auto">
         <!-- Header -->
         <div class="flex items-center justify-between pt-1">
           <div>

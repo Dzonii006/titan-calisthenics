@@ -11,7 +11,7 @@ export class SettingsView {
     const s = appState.settings;
 
     const html = `
-      <div class="p-5 pb-24 space-y-4 max-w-lg mx-auto animate-fadeIn">
+      <div class="p-5 pb-24 space-y-4 max-w-lg mx-auto">
         <!-- Header -->
         <div class="pt-1">
           <span class="text-[11px] font-mono uppercase tracking-widest text-zinc-400">Configuration</span>
