@@ -3,10 +3,16 @@ set -e
 
 echo "🔨 Building Titan Calisthenics Standalone Android APK..."
 
-ANDROID_JAR="/home/dzonii/Android/platforms/android-34/android.jar"
-BUILD_TOOLS="/home/dzonii/Android/build-tools/34.0.0"
+SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/home/dzonii/Android}}"
+ANDROID_JAR=$(ls -1 "$SDK_ROOT"/platforms/android-*/android.jar 2>/dev/null | tail -n 1)
+BUILD_TOOLS=$(ls -d1 "$SDK_ROOT"/build-tools/* 2>/dev/null | tail -n 1)
 KEYSTORE="android/debug.keystore"
 OUT_APK="TitanCalisthenics.apk"
+
+if [ -z "$ANDROID_JAR" ] || [ -z "$BUILD_TOOLS" ]; then
+  echo "❌ Error: Could not locate Android SDK in $SDK_ROOT"
+  exit 1
+fi
 
 # Clean build directory
 rm -rf build
