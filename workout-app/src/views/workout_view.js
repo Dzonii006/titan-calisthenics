@@ -315,9 +315,6 @@ export class WorkoutView {
             <h1 class="text-xl font-bold tracking-tight text-white mt-0.5">${this.program.name}</h1>
           </div>
           <div class="flex items-center gap-2">
-            <button id="btn-pause-warmup" class="px-3 py-1.5 rounded-lg text-xs font-mono font-medium ${this.isWarmupPaused ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-300 border border-zinc-700'}">
-              ${this.isWarmupPaused ? 'Resume' : 'Pause'}
-            </button>
             <button id="btn-quit" class="px-3 py-1.5 rounded-lg text-xs font-mono text-zinc-400 hover:text-white bg-zinc-800/60 border border-zinc-700/60">
               Exit
             </button>
@@ -376,7 +373,6 @@ export class WorkoutView {
       this.isWarmupPaused = !this.isWarmupPaused;
       this.render();
     };
-    this.container.querySelector('#btn-pause-warmup').onclick = toggleWarmupPause;
     this.container.querySelector('#warmup-timer-card').onclick = toggleWarmupPause;
 
     this.container.querySelector('#btn-warmup-done').onclick = () => {
@@ -389,13 +385,10 @@ export class WorkoutView {
     const ex = this.getCurrentExercise();
     const html = `
       <div class="flex flex-col h-full bg-[#121214] text-zinc-100 p-6 justify-between items-center text-center select-none">
-        <!-- Top bar with Pause & Cancel -->
+        <!-- Top bar with Cancel -->
         <div class="w-full flex justify-between items-center border-b border-zinc-800/80 pb-3">
           <span class="text-[11px] uppercase font-mono tracking-widest text-zinc-400">Get Ready</span>
           <div class="flex items-center gap-2">
-            <button id="btn-pause-5s" class="text-xs font-mono py-1 px-3 rounded-lg ${this.is5sPaused ? 'bg-white text-black font-semibold' : 'bg-zinc-800 text-zinc-300 border border-zinc-700'}">
-              ${this.is5sPaused ? 'Resume' : 'Pause'}
-            </button>
             <button id="btn-quit" class="text-xs font-mono text-zinc-400 hover:text-white py-1 px-3 bg-zinc-800/60 border border-zinc-700/60 rounded-lg">
               Exit
             </button>
@@ -443,7 +436,6 @@ export class WorkoutView {
       this.is5sPaused = !this.is5sPaused;
       this.render();
     };
-    this.container.querySelector('#btn-pause-5s').onclick = toggle5sPause;
     this.container.querySelector('#timer-circle-5s').onclick = toggle5sPause;
 
     this.container.querySelector('#btn-skip-5s').onclick = () => {
@@ -473,9 +465,6 @@ export class WorkoutView {
           </div>
 
           <div class="flex items-center gap-2">
-            <button id="btn-pause" class="px-3 py-1.5 rounded-lg ${this.isPaused ? 'bg-white text-black font-semibold' : 'bg-zinc-800 text-zinc-300 border border-zinc-700'} text-xs font-mono">
-              ${this.isPaused ? 'Resume' : 'Pause'}
-            </button>
             <button id="btn-quit" class="p-1.5 rounded-lg bg-zinc-800/60 border border-zinc-700/60 text-zinc-400 hover:text-white text-xs">
               ✕
             </button>
@@ -531,13 +520,8 @@ export class WorkoutView {
                 </div>
               </div>
 
-              <!-- High Contrast Horizontal Meter below circle (clearly visible from distance) -->
-              <div class="w-48 h-2 bg-[#202024] border border-zinc-700/60 rounded-full overflow-hidden mt-3">
-                <div id="rep-progress-bar" class="h-full bg-white transition-all duration-100" style="width: 0%"></div>
-              </div>
-
               <!-- Manual Rep Adjustment Buttons -->
-              <div class="flex items-center gap-3 mt-3">
+              <div class="flex items-center gap-3 mt-4">
                 <button id="btn-rep-minus" class="w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-white text-xl font-bold active:scale-95 transition">
                   -1
                 </button>
@@ -593,9 +577,6 @@ export class WorkoutView {
       this.isPaused = !this.isPaused;
       this.render();
     };
-
-    const btnPause = this.container.querySelector('#btn-pause');
-    if (btnPause) btnPause.onclick = toggleActivePause;
 
     const timerCircle = this.container.querySelector('#timer-circle-active');
     if (timerCircle) timerCircle.onclick = toggleActivePause;
@@ -656,12 +637,6 @@ export class WorkoutView {
         if (svgCircle) {
           const offset = circumference - (pct / 100) * circumference;
           svgCircle.style.strokeDashoffset = offset;
-        }
-
-        // High contrast horizontal bar
-        const barEl = this.container.querySelector('#rep-progress-bar');
-        if (barEl) {
-          barEl.style.width = `${pct}%`;
         }
       }
     }
@@ -783,9 +758,6 @@ export class WorkoutView {
         <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3">
           <span class="text-[11px] uppercase font-mono tracking-widest text-zinc-400">Rest Period</span>
           <div class="flex items-center gap-2">
-            <button id="btn-pause-rest" class="text-xs font-mono py-1 px-3 rounded-lg ${this.isRestPaused ? 'bg-white text-black font-semibold' : 'bg-zinc-800 text-zinc-300 border border-zinc-700'}">
-              ${this.isRestPaused ? 'Resume' : 'Pause'}
-            </button>
             <button id="btn-quit" class="text-xs font-mono text-zinc-400 hover:text-white py-1 px-3 bg-zinc-800/60 border border-zinc-700/60 rounded-lg">
               Exit
             </button>
@@ -852,7 +824,6 @@ export class WorkoutView {
       this.render();
     };
 
-    this.container.querySelector('#btn-pause-rest').onclick = toggleRestPause;
     this.container.querySelector('#timer-circle-rest').onclick = toggleRestPause;
 
     this.container.querySelector('#btn-skip-rest').onclick = () => {

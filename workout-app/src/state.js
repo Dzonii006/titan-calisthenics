@@ -24,6 +24,25 @@ class AppState {
           wakeLockEnabled: true,
           defaultRepDuration: 3.5
         }, parsed.settings || {});
+
+        // Merge any new default exercises if not present
+        let stateUpdated = false;
+        for (const defEx of DEFAULT_EXERCISES) {
+          if (!this.exercises.some(e => e.id === defEx.id)) {
+            this.exercises.push(defEx);
+            stateUpdated = true;
+          }
+        }
+        // Merge any new default programs if not present
+        for (const defProg of DEFAULT_PROGRAMS) {
+          if (!this.programs.some(p => p.id === defProg.id)) {
+            this.programs.push(defProg);
+            stateUpdated = true;
+          }
+        }
+        if (stateUpdated) {
+          this.save();
+        }
       } else {
         this.resetToDefaults();
       }

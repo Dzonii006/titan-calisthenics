@@ -313,6 +313,62 @@ export const DEFAULT_EXERCISES = [
     weightTrackingEnabled: false,
     weight: 0,
     cue: "Squeeze glutes rock-hard, tuck tailbone under, pull elbows toward toes."
+  },
+  {
+    id: 23,
+    name: "Half-Kneeling Hip Flexor Stretch",
+    type: "Isometric",
+    group: "Core & Posture",
+    laterality: "Unilateral",
+    targetSets: 2,
+    targetValue: 60, // seconds per side
+    restInterval: 30,
+    repDuration: null,
+    weightTrackingEnabled: false,
+    weight: 0,
+    cue: "Tuck tailbone under into posterior tilt and squeeze rear glute tightly. Do not arch lower back."
+  },
+  {
+    id: 24,
+    name: "Glute Bridges with Pelvic Tuck",
+    type: "Dynamic",
+    group: "Core & Posture",
+    laterality: "Bilateral",
+    targetSets: 2,
+    targetValue: 15, // reps
+    restInterval: 45,
+    repDuration: 3.5,
+    weightTrackingEnabled: false,
+    weight: 0,
+    cue: "Flatten lower back against the floor first, drive through heels, 2s glute pause at top."
+  },
+  {
+    id: 25,
+    name: "Deadbug (Flat Lumbar Spine)",
+    type: "Dynamic",
+    group: "Core & Posture",
+    laterality: "Bilateral",
+    targetSets: 2,
+    targetValue: 20, // 10 reps / side = 20 total
+    restInterval: 45,
+    repDuration: 3.5,
+    weightTrackingEnabled: false,
+    weight: 0,
+    cue: "Lower back must remain glued flat to the floor at all times. Controlled breathing."
+  },
+  {
+    id: 26,
+    name: "Stomach Vacuum (TVA Bracing)",
+    type: "Isometric",
+    group: "Core & Posture",
+    laterality: "Bilateral",
+    targetSets: 3,
+    targetValue: 20, // seconds
+    restInterval: 30,
+    repDuration: null,
+    weightTrackingEnabled: false,
+    weight: 0,
+    cue: "Fully exhale all air, suck navel inward toward spine, hold 20s."
   }
 ];
 
@@ -361,5 +417,15 @@ export const DEFAULT_PROGRAMS = [
       "Bird-dog with 3s hold: 6 reps / side"
     ],
     exerciseIds: [16, 17, 18, 21, 22]
+  },
+  {
+    id: 5,
+    name: "Daily Posture & APT Reset",
+    subtitle: "Daily 6-Min Pelvic Alignment & TVA Bracing",
+    warmup: [
+      "Pelvic tilts on floor: 10 reps to find neutral spine",
+      "Diaphragmatic breathing into abdomen: 5 deep breaths"
+    ],
+    exerciseIds: [23, 24, 25, 26]
   }
 ];

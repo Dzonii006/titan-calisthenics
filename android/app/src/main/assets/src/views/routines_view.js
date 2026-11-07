@@ -19,7 +19,7 @@ export class RoutinesView {
             <h1 class="text-2xl font-bold tracking-tight text-white mt-0.5">Routines</h1>
           </div>
           <div class="px-2.5 py-1 rounded-lg bg-zinc-800/80 border border-zinc-700/60 text-xs font-mono text-zinc-300">
-            4-Day Split
+            ${programs.length} Routines
           </div>
         </div>
 

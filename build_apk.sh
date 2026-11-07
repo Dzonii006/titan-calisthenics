@@ -21,6 +21,7 @@ mkdir -p build/gen build/obj build/dex
 # Sync latest assets
 rm -rf android/app/src/main/assets/*
 cp -r workout-app/* android/app/src/main/assets/
+rm -f android/app/src/main/assets/icons/social_preview.*
 
 # 1. Compile resources with aapt2
 echo "📦 Step 1: Compiling resources..."
