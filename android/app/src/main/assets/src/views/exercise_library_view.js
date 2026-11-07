@@ -291,10 +291,21 @@ export class ExerciseLibraryView {
     const deleteBtn = document.getElementById('btn-delete-exercise');
     if (deleteBtn) {
       deleteBtn.onclick = () => {
-        if (confirm(`Delete "${this.editingExercise.name}"?`)) {
+        if (deleteBtn.dataset.confirming === 'true') {
           appState.deleteExercise(this.editingExercise.id);
           closeModal();
           this.render();
+        } else {
+          deleteBtn.dataset.confirming = 'true';
+          deleteBtn.innerText = 'Tap again to confirm delete';
+          deleteBtn.className = 'py-3 rounded-xl bg-red-950/80 border border-red-700 text-red-300 font-semibold text-xs uppercase tracking-wider transition';
+          setTimeout(() => {
+            if (deleteBtn && deleteBtn.dataset.confirming === 'true') {
+              deleteBtn.dataset.confirming = 'false';
+              deleteBtn.innerText = 'Delete Exercise';
+              deleteBtn.className = 'py-3 rounded-xl bg-zinc-800 text-red-400 hover:bg-zinc-700 font-semibold text-xs uppercase tracking-wider transition';
+            }
+          }, 3500);
         }
       };
     }

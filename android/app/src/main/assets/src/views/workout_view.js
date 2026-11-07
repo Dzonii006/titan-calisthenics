@@ -13,8 +13,9 @@ export class WorkoutView {
     this.currentSet = 1;
     this.totalSetsForCurrentEx = 3;
 
-    // Phases: 'WARMUP' | 'COUNTDOWN_5S' | 'ACTIVE' | 'CONFIRM_SET' | 'REST' | 'SUMMARY'
+    // Phases: 'WARMUP' | 'COUNTDOWN_5S' | 'ACTIVE' | 'CONFIRM_SET' | 'REST' | 'OVERVIEW' | 'SUMMARY'
     this.phase = 'WARMUP';
+    this.previousPhase = 'ACTIVE';
 
     // Timers & intervals
     this.activeTimer = null;
@@ -49,7 +50,7 @@ export class WorkoutView {
   start(programId) {
     this.program = appState.getProgram(programId);
     if (!this.program) {
-      alert("Workout program not found.");
+      console.warn("Workout program not found.");
       this.onExit();
       return;
     }
@@ -59,7 +60,7 @@ export class WorkoutView {
       .filter(Boolean);
 
     if (this.exerciseList.length === 0) {
-      alert("No exercises in this workout routine.");
+      console.warn("No exercises in this workout routine.");
       this.onExit();
       return;
     }
@@ -170,6 +171,7 @@ export class WorkoutView {
         }
 
         if (this.holdRemainingSeconds <= 0) {
+          sounds.playSetFinished();
           this.promptSetConfirmation();
         } else {
           this.updateActiveDisplay();
@@ -193,6 +195,7 @@ export class WorkoutView {
           sounds.playRepTick();
 
           if (this.currentRep >= this.targetReps) {
+            sounds.playSetFinished();
             this.promptSetConfirmation();
             return;
           }
@@ -299,6 +302,8 @@ export class WorkoutView {
       this.renderConfirmSet();
     } else if (this.phase === 'REST') {
       this.renderRest();
+    } else if (this.phase === 'OVERVIEW') {
+      this.renderOverview();
     } else if (this.phase === 'SUMMARY') {
       this.renderSummary();
     }
@@ -315,6 +320,12 @@ export class WorkoutView {
             <h1 class="text-xl font-bold tracking-tight text-white mt-0.5">${this.program.name}</h1>
           </div>
           <div class="flex items-center gap-2">
+            <button id="btn-workout-overview" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-xs font-mono active:scale-95 transition">
+              <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+              <span>Overview</span>
+            </button>
             <button id="btn-quit" class="px-3 py-1.5 rounded-lg text-xs font-mono text-zinc-400 hover:text-white bg-zinc-800/60 border border-zinc-700/60">
               Exit
             </button>
@@ -363,11 +374,13 @@ export class WorkoutView {
     this.container.innerHTML = html;
 
     this.container.querySelector('#btn-quit').onclick = () => {
-      if (confirm("Exit workout?")) {
-        this.cleanup();
-        this.onExit();
-      }
+      this.showExitModal();
     };
+
+    const btnOverview = this.container.querySelector('#btn-workout-overview');
+    if (btnOverview) {
+      btnOverview.onclick = () => this.openOverview();
+    }
 
     const toggleWarmupPause = () => {
       this.isWarmupPaused = !this.isWarmupPaused;
@@ -389,6 +402,12 @@ export class WorkoutView {
         <div class="w-full flex justify-between items-center border-b border-zinc-800/80 pb-3">
           <span class="text-[11px] uppercase font-mono tracking-widest text-zinc-400">Get Ready</span>
           <div class="flex items-center gap-2">
+            <button id="btn-workout-overview" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-xs font-mono active:scale-95 transition">
+              <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+              <span>Overview</span>
+            </button>
             <button id="btn-quit" class="text-xs font-mono text-zinc-400 hover:text-white py-1 px-3 bg-zinc-800/60 border border-zinc-700/60 rounded-lg">
               Exit
             </button>
@@ -428,9 +447,13 @@ export class WorkoutView {
     this.container.innerHTML = html;
 
     this.container.querySelector('#btn-quit').onclick = () => {
-      this.cleanup();
-      this.onExit();
+      this.showExitModal();
     };
+
+    const btnOverview = this.container.querySelector('#btn-workout-overview');
+    if (btnOverview) {
+      btnOverview.onclick = () => this.openOverview();
+    }
 
     const toggle5sPause = () => {
       this.is5sPaused = !this.is5sPaused;
@@ -465,6 +488,12 @@ export class WorkoutView {
           </div>
 
           <div class="flex items-center gap-2">
+            <button id="btn-workout-overview" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-xs font-mono active:scale-95 transition">
+              <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+              <span>Overview</span>
+            </button>
             <button id="btn-quit" class="p-1.5 rounded-lg bg-zinc-800/60 border border-zinc-700/60 text-zinc-400 hover:text-white text-xs">
               ✕
             </button>
@@ -567,11 +596,13 @@ export class WorkoutView {
     this.container.innerHTML = html;
 
     this.container.querySelector('#btn-quit').onclick = () => {
-      if (confirm("Exit workout?")) {
-        this.cleanup();
-        this.onExit();
-      }
+      this.showExitModal();
     };
+
+    const btnOverview = this.container.querySelector('#btn-workout-overview');
+    if (btnOverview) {
+      btnOverview.onclick = () => this.openOverview();
+    }
 
     const toggleActivePause = () => {
       this.isPaused = !this.isPaused;
@@ -582,6 +613,7 @@ export class WorkoutView {
     if (timerCircle) timerCircle.onclick = toggleActivePause;
 
     this.container.querySelector('#btn-complete-set').onclick = () => {
+      sounds.playSetFinished();
       this.promptSetConfirmation();
     };
 
@@ -758,6 +790,12 @@ export class WorkoutView {
         <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3">
           <span class="text-[11px] uppercase font-mono tracking-widest text-zinc-400">Rest Period</span>
           <div class="flex items-center gap-2">
+            <button id="btn-workout-overview" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 text-xs font-mono active:scale-95 transition">
+              <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+              <span>Overview</span>
+            </button>
             <button id="btn-quit" class="text-xs font-mono text-zinc-400 hover:text-white py-1 px-3 bg-zinc-800/60 border border-zinc-700/60 rounded-lg">
               Exit
             </button>
@@ -813,11 +851,13 @@ export class WorkoutView {
     this.container.innerHTML = html;
 
     this.container.querySelector('#btn-quit').onclick = () => {
-      if (confirm("Quit workout?")) {
-        this.cleanup();
-        this.onExit();
-      }
+      this.showExitModal();
     };
+
+    const btnOverview = this.container.querySelector('#btn-workout-overview');
+    if (btnOverview) {
+      btnOverview.onclick = () => this.openOverview();
+    }
 
     const toggleRestPause = () => {
       this.isRestPaused = !this.isRestPaused;
@@ -850,6 +890,289 @@ export class WorkoutView {
     if (el) {
       el.innerText = this.formatTime(this.restRemainingSeconds);
     }
+    const ovEl = this.container.querySelector('#overview-rest-digits');
+    if (ovEl) {
+      ovEl.innerText = this.formatTime(this.restRemainingSeconds);
+    }
+  }
+
+  // --- WORKOUT PLAN OVERVIEW (Discussion #10) ---
+  openOverview() {
+    this.previousPhase = this.phase;
+    if (this.phase === 'ACTIVE') {
+      this.isPaused = true;
+    }
+    this.phase = 'OVERVIEW';
+    this.render();
+  }
+
+  closeOverview() {
+    this.phase = this.previousPhase || 'ACTIVE';
+    this.render();
+  }
+
+  renderOverview() {
+    const currentEx = this.getCurrentExercise();
+    const totalWorkoutSeconds = Math.round((Date.now() - this.workoutStartTime) / 1000);
+
+    const html = `
+      <div class="flex flex-col h-full bg-[#121214] text-zinc-100 p-5 select-none overflow-hidden">
+        <!-- Top bar -->
+        <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3 flex-shrink-0">
+          <div>
+            <span class="text-[10px] font-mono uppercase tracking-widest text-zinc-400">Workout Plan & Progress</span>
+            <h1 class="text-lg font-bold tracking-tight text-white truncate max-w-[200px]">${this.program.name}</h1>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="btn-close-overview" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-black text-xs font-mono font-bold active:scale-95 transition">
+              <span>Resume</span>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7" />
+              </svg>
+            </button>
+            <button id="btn-quit" class="p-1.5 rounded-lg bg-zinc-800/60 border border-zinc-700/60 text-zinc-400 hover:text-white text-xs">
+              ✕
+            </button>
+          </div>
+        </div>
+
+        <!-- Sticky Status / Resume Banner -->
+        <div id="overview-resume-banner" class="my-3 p-3 bg-[#18181b] border border-zinc-800 rounded-xl flex items-center justify-between cursor-pointer active:scale-98 transition flex-shrink-0">
+          <div class="flex items-center gap-2.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-white animate-pulse"></span>
+            <div>
+              <div class="text-xs font-bold text-white">
+                ${this.previousPhase === 'REST' ? 'Rest Period Active' : (this.previousPhase === 'ACTIVE' ? `Current: ${currentEx.name}` : `${this.program.name}`)}
+              </div>
+              <div class="text-[11px] font-mono text-zinc-400">
+                ${this.previousPhase === 'REST' ? `Time Remaining: <span id="overview-rest-digits" class="text-white font-bold">${this.formatTime(this.restRemainingSeconds)}</span>` : `Set ${this.currentSet} of ${this.totalSetsForCurrentEx} • Workout: ${this.formatTime(totalWorkoutSeconds)}`}
+              </div>
+            </div>
+          </div>
+          <span class="text-xs font-mono font-semibold text-zinc-300 flex items-center gap-1">
+            <span>Back</span>
+            <span>➔</span>
+          </span>
+        </div>
+
+        <!-- Scrollable Exercises List -->
+        <div class="flex-1 overflow-y-auto space-y-4 pr-0.5 pb-2">
+          ${this.exerciseList.map((ex, exIdx) => {
+            const isCurrentEx = exIdx === this.currentExIndex;
+            const exCompletedSets = this.completedSets.filter(cs => cs.exerciseId === ex.id);
+
+            return `
+              <div class="bg-[#18181b] border ${isCurrentEx ? 'border-zinc-600' : 'border-zinc-800'} rounded-2xl p-4 space-y-3">
+                <!-- Exercise Header -->
+                <div class="flex items-start justify-between">
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-[10px] font-mono text-zinc-400 uppercase tracking-wider font-semibold">#${exIdx + 1} • ${ex.group}</span>
+                      ${isCurrentEx ? `<span class="text-[9px] font-mono uppercase bg-white text-black font-bold px-1.5 py-0.5 rounded">Active</span>` : ''}
+                    </div>
+                    <h3 class="text-base font-bold text-white mt-0.5">${ex.name}</h3>
+                    <div class="text-xs text-zinc-400 font-mono mt-0.5">
+                      Target: ${ex.targetSets} sets × ${ex.targetValue}${ex.type === 'Isometric' ? 's' : ' reps'}
+                      ${ex.weightTrackingEnabled && ex.weight > 0 ? `• ${ex.weight}kg` : ''}
+                      • ${ex.restInterval}s rest
+                    </div>
+                  </div>
+
+                  ${!isCurrentEx ? `
+                    <button class="btn-jump-exercise text-[11px] font-mono text-zinc-400 hover:text-white px-2.5 py-1 rounded-lg bg-zinc-800/80 border border-zinc-700/60 active:scale-95" data-ex-idx="${exIdx}">
+                      Switch
+                    </button>
+                  ` : ''}
+                </div>
+
+                <!-- Sets List for this Exercise -->
+                <div class="space-y-1.5 pt-1">
+                  ${Array.from({ length: ex.targetSets || 3 }, (_, sIdx) => {
+                    const setNum = sIdx + 1;
+                    const logged = exCompletedSets.find(s => s.setIndex === setNum);
+                    const isActiveSet = isCurrentEx && setNum === this.currentSet && !logged;
+
+                    if (logged) {
+                      return `
+                        <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#202024] border border-zinc-700/80 text-xs">
+                          <div class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded-full bg-white text-black font-bold flex items-center justify-center text-[10px]">✓</span>
+                            <span class="font-mono text-zinc-200 font-semibold">Set ${setNum}</span>
+                          </div>
+
+                          <div class="flex items-center gap-2.5 font-mono">
+                            <!-- Edit reps / hold seconds -->
+                            <div class="flex items-center gap-1">
+                              <button class="btn-adj-rep w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold active:scale-95 flex items-center justify-center text-xs" data-ex-id="${ex.id}" data-set-num="${setNum}" data-delta="-1">-</button>
+                              <span class="w-7 text-center font-bold text-white">${logged.reps}</span>
+                              <button class="btn-adj-rep w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold active:scale-95 flex items-center justify-center text-xs" data-ex-id="${ex.id}" data-set-num="${setNum}" data-delta="1">+</button>
+                              <span class="text-zinc-500 text-[10px]">${ex.type === 'Isometric' ? 's' : 'r'}</span>
+                            </div>
+
+                            <!-- Edit weight if enabled -->
+                            ${ex.weightTrackingEnabled ? `
+                              <div class="flex items-center gap-1 border-l border-zinc-700 pl-2">
+                                <button class="btn-adj-weight w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold active:scale-95 flex items-center justify-center text-[10px]" data-ex-id="${ex.id}" data-set-num="${setNum}" data-delta="-2.5">-</button>
+                                <span class="w-10 text-center font-bold text-white text-[11px]">${logged.weight}k</span>
+                                <button class="btn-adj-weight w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold active:scale-95 flex items-center justify-center text-[10px]" data-ex-id="${ex.id}" data-set-num="${setNum}" data-delta="2.5">+</button>
+                              </div>
+                            ` : ''}
+                          </div>
+                        </div>
+                      `;
+                    } else if (isActiveSet) {
+                      return `
+                        <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#202024]/70 border border-zinc-500 text-xs font-mono">
+                          <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+                            <span class="text-white font-bold">Set ${setNum} (Current)</span>
+                          </div>
+                          <span class="text-zinc-400">Target: ${ex.targetValue}${ex.type === 'Isometric' ? 's' : ' reps'}</span>
+                        </div>
+                      `;
+                    } else {
+                      return `
+                        <div class="flex items-center justify-between p-2 rounded-xl border border-dashed border-zinc-800 text-zinc-500 text-xs font-mono">
+                          <span>Set ${setNum}</span>
+                          <span>Upcoming</span>
+                        </div>
+                      `;
+                    }
+                  }).join('')}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <!-- Bottom Action: Return to Timer -->
+        <div class="pt-3 flex-shrink-0">
+          <button id="btn-return-timer-bottom" class="w-full py-4 rounded-xl bg-white hover:bg-zinc-200 active:scale-98 transition text-black font-bold text-sm tracking-wide uppercase flex items-center justify-center gap-2 shadow-lg">
+            <span>Return to Timer Screen</span>
+            <span>➔</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    this.container.innerHTML = html;
+
+    // Handlers
+    const returnToTimer = () => this.closeOverview();
+    this.container.querySelector('#btn-close-overview').onclick = returnToTimer;
+    this.container.querySelector('#overview-resume-banner').onclick = returnToTimer;
+    this.container.querySelector('#btn-return-timer-bottom').onclick = returnToTimer;
+
+    this.container.querySelector('#btn-quit').onclick = () => {
+      this.showExitModal();
+    };
+
+    // Set editing handlers
+    this.container.querySelectorAll('.btn-adj-rep').forEach(btn => {
+      btn.onclick = (e) => {
+        const exId = Number(e.currentTarget.dataset.exId);
+        const setNum = Number(e.currentTarget.dataset.setNum);
+        const delta = Number(e.currentTarget.dataset.delta);
+        const logged = this.completedSets.find(cs => cs.exerciseId === exId && cs.setIndex === setNum);
+        if (logged) {
+          logged.reps = Math.max(0, logged.reps + delta);
+          this.render();
+        }
+      };
+    });
+
+    this.container.querySelectorAll('.btn-adj-weight').forEach(btn => {
+      btn.onclick = (e) => {
+        const exId = Number(e.currentTarget.dataset.exId);
+        const setNum = Number(e.currentTarget.dataset.setNum);
+        const delta = Number(e.currentTarget.dataset.delta);
+        const logged = this.completedSets.find(cs => cs.exerciseId === exId && cs.setIndex === setNum);
+        if (logged) {
+          logged.weight = Math.max(0, logged.weight + delta);
+          const ex = appState.getExercise(exId);
+          if (ex && ex.weightTrackingEnabled) {
+            ex.weight = logged.weight;
+            appState.saveExercise(ex);
+          }
+          this.render();
+        }
+      };
+    });
+
+    // Jump to exercise
+    this.container.querySelectorAll('.btn-jump-exercise').forEach(btn => {
+      btn.onclick = (e) => {
+        const targetIdx = Number(e.currentTarget.dataset.exIdx);
+        this.currentExIndex = targetIdx;
+        this.currentSet = 1;
+        const ex = this.getCurrentExercise();
+        this.totalSetsForCurrentEx = ex.targetSets || 3;
+        this.currentWeight = ex.weight || 0;
+        this.closeOverview();
+        this.start5sCountdown();
+      };
+    });
+  }
+
+  // --- CUSTOM EXIT MODAL (Issue #8 Fix - replaces weird browser confirm) ---
+  showExitModal() {
+    if (document.getElementById('exit-workout-modal')) return;
+
+    const modalRoot = document.getElementById('modal-root') || document.body;
+    const modalEl = document.createElement('div');
+    modalEl.id = 'exit-workout-modal';
+    modalEl.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none';
+
+    const hasCompletedSets = this.completedSets.length > 0;
+
+    modalEl.innerHTML = `
+      <div class="bg-[#18181b] border border-zinc-700/80 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl text-center">
+        <div class="w-12 h-12 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center mx-auto text-zinc-300 text-lg font-bold">
+          ✕
+        </div>
+        <div>
+          <h3 class="text-lg font-bold text-white tracking-tight">End Workout?</h3>
+          <p class="text-xs text-zinc-400 mt-1.5 leading-relaxed">
+            ${hasCompletedSets
+              ? "Are you sure you want to exit? Your completed sets will be saved to your session history."
+              : "Are you sure you want to exit this workout session?"}
+          </p>
+        </div>
+        <div class="space-y-2 pt-2">
+          <button id="btn-modal-resume" class="w-full py-3.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-sm tracking-wide uppercase transition active:scale-98">
+            Resume Workout
+          </button>
+          ${hasCompletedSets ? `
+            <button id="btn-modal-finish-early" class="w-full py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold text-xs tracking-wider uppercase border border-zinc-700 transition active:scale-98">
+              End & Save Progress
+            </button>
+          ` : ''}
+          <button id="btn-modal-discard" class="w-full py-2.5 text-zinc-500 hover:text-zinc-300 text-xs font-mono transition">
+            Discard Entire Session
+          </button>
+        </div>
+      </div>
+    `;
+
+    modalRoot.appendChild(modalEl);
+
+    modalEl.querySelector('#btn-modal-resume').onclick = () => {
+      modalEl.remove();
+    };
+
+    const btnFinishEarly = modalEl.querySelector('#btn-modal-finish-early');
+    if (btnFinishEarly) {
+      btnFinishEarly.onclick = () => {
+        modalEl.remove();
+        this.finishWorkout();
+      };
+    }
+
+    modalEl.querySelector('#btn-modal-discard').onclick = () => {
+      modalEl.remove();
+      this.cleanup();
+      this.onExit();
+    };
   }
 
   // --- SUMMARY VIEW ---

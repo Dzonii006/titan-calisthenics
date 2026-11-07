@@ -47,7 +47,7 @@ class SoundManager {
 
   // 5... 4... 3... 2... 1... tick
   playCountdownTick() {
-    this.playTone(880, 'sine', 0.09, 0.35);
+    this.playTone(880, 'triangle', 0.1, 0.55);
     this.vibrate([60]);
   }
 
@@ -80,10 +80,69 @@ class SoundManager {
     this.vibrate([150]);
   }
 
-  // Rep completion tick
+  // Rep completion tick - loud & crisp punch that cuts through phone speakers
   playRepTick() {
-    this.playTone(660, 'sine', 0.08, 0.25);
-    this.vibrate([40]);
+    if (!this.soundEnabled) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(987.77, now); // B5 crisp athletic chime
+      osc.frequency.exponentialRampToValueAtTime(1318.51, now + 0.04); // snap up to E6
+
+      gain.gain.setValueAtTime(0.75, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.12);
+    } catch (e) {
+      console.warn("Audio playback error:", e);
+    }
+    this.vibrate([60]);
+  }
+
+  // Set Finished chime - loud, distinctive ascending double-chime for end of set
+  playSetFinished() {
+    if (!this.soundEnabled) return;
+    try {
+      this.init();
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+
+      // Note 1: High crisp alert (C6)
+      const osc1 = this.ctx.createOscillator();
+      const gain1 = this.ctx.createGain();
+      osc1.type = 'triangle';
+      osc1.frequency.setValueAtTime(1046.50, now);
+      gain1.gain.setValueAtTime(0.8, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+      osc1.connect(gain1);
+      gain1.connect(this.ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.16);
+
+      // Note 2: Triumphant higher bell (G6)
+      const osc2 = this.ctx.createOscillator();
+      const gain2 = this.ctx.createGain();
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(1567.98, now + 0.12);
+      gain2.gain.setValueAtTime(0.85, now + 0.12);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc2.connect(gain2);
+      gain2.connect(this.ctx.destination);
+      osc2.start(now + 0.12);
+      osc2.stop(now + 0.35);
+    } catch (e) {
+      console.warn("Audio playback error:", e);
+    }
+    this.vibrate([150, 70, 250]);
   }
 
   // Rest timer ended - ready for 5s countdown

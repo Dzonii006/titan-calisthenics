@@ -115,7 +115,7 @@ export class SettingsView {
         </div>
 
         <div class="text-center text-[11px] font-mono text-zinc-500 pt-2">
-          Titan Calisthenics • v1.0.0
+          Titan Calisthenics • v1.1.0
         </div>
       </div>
     `;
@@ -204,10 +204,9 @@ export class SettingsView {
         reader.onload = (event) => {
           try {
             appState.importJson(event.target.result);
-            alert("Backup imported successfully.");
             this.render();
           } catch (err) {
-            alert("Failed to parse backup: " + err.message);
+            console.error("Failed to parse backup:", err);
           }
         };
         reader.readAsText(file);
@@ -217,10 +216,21 @@ export class SettingsView {
     const btnReset = this.container.querySelector('#btn-reset-defaults');
     if (btnReset) {
       btnReset.onclick = () => {
-        if (confirm("Reset all routines and exercises to the baseline? (Your history will be preserved)")) {
+        if (btnReset.dataset.confirming === 'true') {
           appState.resetToDefaults();
-          alert("Reset complete.");
-          this.render();
+          btnReset.innerText = 'Routines Reset to Baseline ✓';
+          setTimeout(() => this.render(), 1200);
+        } else {
+          btnReset.dataset.confirming = 'true';
+          btnReset.innerText = 'Tap again to confirm reset';
+          btnReset.className = 'w-full py-2 text-xs text-red-400 font-mono transition text-center font-bold';
+          setTimeout(() => {
+            if (btnReset && btnReset.dataset.confirming === 'true') {
+              btnReset.dataset.confirming = 'false';
+              btnReset.innerText = 'Reset Routines to Baseline';
+              btnReset.className = 'w-full py-2 text-xs text-zinc-500 hover:text-zinc-300 font-mono transition text-center';
+            }
+          }, 3500);
         }
       };
     }
