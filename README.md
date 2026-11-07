@@ -1,3 +1,11 @@
+<div align="center">
+  <img src="android/app/src/main/res/drawable/ic_launcher.png" width="96" height="96" alt="Titan Calisthenics Icon" />
+  <h1>Titan Calisthenics</h1>
+  <p>Minimalist, offline-first calisthenics &amp; gymnastic rings workout tracker for Android.</p>
+</div>
+
+---
+
 # Body Recomposition & Rings Program
 
 Direct, minimalist fitness roadmap focused on upper-body hypertrophy, calisthenics skill progression, and posture correction.
