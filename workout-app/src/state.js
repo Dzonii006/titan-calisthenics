@@ -25,8 +25,15 @@ class AppState {
           defaultRepDuration: 3.5
         }, parsed.settings || {});
 
-        // Merge any new default exercises if not present
+        // Merge any new default groups if not present
         let stateUpdated = false;
+        for (const defGrp of DEFAULT_GROUPS) {
+          if (!this.groups.some(g => g.id === defGrp.id)) {
+            this.groups.push(defGrp);
+            stateUpdated = true;
+          }
+        }
+        // Merge any new default exercises if not present
         for (const defEx of DEFAULT_EXERCISES) {
           if (!this.exercises.some(e => e.id === defEx.id)) {
             this.exercises.push(defEx);

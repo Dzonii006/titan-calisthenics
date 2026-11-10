@@ -19,7 +19,7 @@ export class ExerciseLibraryView {
       exercises = exercises.filter(e => e.name.toLowerCase().includes(q) || (e.cue && e.cue.toLowerCase().includes(q)));
     }
 
-    const groups = ['All', 'Upper Body', 'Lower Body', 'Core & Posture'];
+    const groups = ['All', ...(appState.groups || []).map(g => g.name)];
 
     const html = `
       <div class="p-5 pb-24 space-y-4 max-w-lg mx-auto">
@@ -171,9 +171,9 @@ export class ExerciseLibraryView {
               <div>
                 <label class="block text-xs font-mono uppercase text-zinc-400 mb-1">Group</label>
                 <select id="form-group" class="w-full bg-[#121214] border border-zinc-700 rounded-xl px-3 py-2 text-white text-sm">
-                  <option value="Upper Body" ${this.editingExercise.group === 'Upper Body' ? 'selected' : ''}>Upper Body</option>
-                  <option value="Lower Body" ${this.editingExercise.group === 'Lower Body' ? 'selected' : ''}>Lower Body</option>
-                  <option value="Core & Posture" ${this.editingExercise.group === 'Core & Posture' ? 'selected' : ''}>Core & Posture</option>
+                  ${(appState.groups || []).map(g => `
+                    <option value="${g.name}" ${this.editingExercise.group === g.name ? 'selected' : ''}>${g.name}</option>
+                  `).join('')}
                 </select>
               </div>
 

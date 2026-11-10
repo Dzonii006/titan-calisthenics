@@ -2,7 +2,8 @@
 export const DEFAULT_GROUPS = [
   { id: 1, name: "Upper Body", displayOrder: 0 },
   { id: 2, name: "Lower Body", displayOrder: 1 },
-  { id: 3, name: "Core & Posture", displayOrder: 2 }
+  { id: 3, name: "Core & Posture", displayOrder: 2 },
+  { id: 4, name: "Skill & Balance", displayOrder: 3 }
 ];
 
 export const DEFAULT_EXERCISES = [
@@ -369,6 +370,62 @@ export const DEFAULT_EXERCISES = [
     weightTrackingEnabled: false,
     weight: 0,
     cue: "Fully exhale all air, suck navel inward toward spine, hold 20s."
+  },
+  {
+    id: 27,
+    name: "Chest-to-Wall Handstand Hold",
+    type: "Isometric",
+    group: "Skill & Balance",
+    laterality: "Bilateral",
+    targetSets: 3,
+    targetValue: 30, // seconds
+    restInterval: 60,
+    repDuration: null,
+    weightTrackingEnabled: false,
+    weight: 0,
+    cue: "Lock elbows straight, push shoulders up into ears (elevation), squeeze glutes, point toes. Hands 15–25 cm from wall."
+  },
+  {
+    id: 28,
+    name: "Handstand Bail Out Practice",
+    type: "Dynamic",
+    group: "Skill & Balance",
+    laterality: "Bilateral",
+    targetSets: 3,
+    targetValue: 5, // reps
+    restInterval: 45,
+    repDuration: 3.5,
+    weightTrackingEnabled: false,
+    weight: 0,
+    cue: "When falling past vertical, step one hand forward and turn torso sideways to safely cartwheel down on your feet."
+  },
+  {
+    id: 29,
+    name: "Wall Pulls & Toe Taps",
+    type: "Dynamic",
+    group: "Skill & Balance",
+    laterality: "Bilateral",
+    targetSets: 3,
+    targetValue: 10, // reps
+    restInterval: 60,
+    repDuration: 4.0,
+    weightTrackingEnabled: false,
+    weight: 0,
+    cue: "From chest-to-wall, press fingertips into floor to peel toes 2–3 cm off wall. Hold balance 2–5s before light tap."
+  },
+  {
+    id: 30,
+    name: "Freestanding Handstand Hold",
+    type: "Isometric",
+    group: "Skill & Balance",
+    laterality: "Bilateral",
+    targetSets: 4,
+    targetValue: 10, // seconds
+    restInterval: 60,
+    repDuration: null,
+    weightTrackingEnabled: false,
+    weight: 0,
+    cue: "Smooth kick-up, fingers splayed gripping floor like tiger claws. Work fingertips to brake and catch balance."
   }
 ];
 
@@ -427,5 +484,17 @@ export const DEFAULT_PROGRAMS = [
       "Diaphragmatic breathing into abdomen: 5 deep breaths"
     ],
     exerciseIds: [23, 24, 25, 26]
+  },
+  {
+    id: 6,
+    name: "Handstand Skill Progression",
+    subtitle: "5–10 Min Skill Routine (Wall Walks, Bailouts & Balance)",
+    warmup: [
+      "Wrist rocks & circles (palms down, fingers back): 45s",
+      "First knuckle raises & finger pulses: 30s",
+      "Shoulder dislocates / arm circles: 30s",
+      "Hollow body rock on floor: 15s"
+    ],
+    exerciseIds: [27, 28, 29, 30]
   }
 ];
