@@ -108,15 +108,17 @@ export class WorkoutView {
   formatPreviousLog(log, ex) {
     if (!log) return '—';
     const unit = (appState && appState.settings && appState.settings.weightUnit) || 'kg';
+    const hasWeight = typeof log.weight === 'number' && log.weight > 0;
+
     if (ex && ex.type === 'Isometric') {
       const sec = log.duration || log.reps || 0;
-      if (ex.weightTrackingEnabled && log.weight > 0) {
+      if (hasWeight) {
         return `${sec}s @ ${log.weight}${unit}`;
       }
       return `${sec}s`;
     }
     const reps = log.reps || 0;
-    if (ex && ex.weightTrackingEnabled && log.weight > 0) {
+    if (hasWeight) {
       return `${reps}r @ ${log.weight}${unit}`;
     }
     return `${reps}r`;
@@ -238,21 +240,23 @@ export class WorkoutView {
 
   confirmAndFinishSet() {
     const ex = this.getCurrentExercise();
+    const weightToLog = this.confirmedWeight || 0;
 
     this.completedSets.push({
       exerciseId: ex.id,
       exerciseName: ex.name,
       setIndex: this.currentSet,
       reps: this.confirmedReps,
-      weight: ex.weightTrackingEnabled ? this.confirmedWeight : 0,
+      weight: weightToLog,
       duration: Math.round(this.activeDuration)
     });
 
     sounds.playSetLogged();
 
-    if (ex.weightTrackingEnabled) {
-      ex.weight = this.confirmedWeight;
-      this.currentWeight = this.confirmedWeight;
+    if (weightToLog > 0 || ex.weightTrackingEnabled) {
+      ex.weight = weightToLog;
+      this.currentWeight = weightToLog;
+      if (weightToLog > 0) ex.weightTrackingEnabled = true;
       appState.saveExercise(ex);
     }
 
@@ -1107,7 +1111,7 @@ export class WorkoutView {
                           </div>
 
                           <div class="col-span-3 flex items-center justify-end gap-1">
-                            ${ex.weightTrackingEnabled ? `
+                            ${(ex.weightTrackingEnabled || (logged.weight && logged.weight > 0)) ? `
                               <button class="btn-adj-weight w-5 h-6 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold active:scale-95 flex items-center justify-center text-[9px]" data-ex-id="${ex.id}" data-set-num="${setNum}" data-delta="-0.5">-</button>
                               <input type="number" step="0.5" min="0" value="${logged.weight || 0}" class="input-adj-weight w-10 bg-[#121214] border border-zinc-700 text-center font-mono font-bold text-white text-[11px] py-0.5 rounded focus:outline-none focus:border-zinc-400" data-ex-id="${ex.id}" data-set-num="${setNum}" />
                               <button class="btn-adj-weight w-5 h-6 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold active:scale-95 flex items-center justify-center text-[9px]" data-ex-id="${ex.id}" data-set-num="${setNum}" data-delta="0.5">+</button>
