@@ -13,9 +13,10 @@ export class WorkoutView {
     this.currentSet = 1;
     this.totalSetsForCurrentEx = 3;
 
-    // Phases: 'WARMUP' | 'COUNTDOWN_5S' | 'ACTIVE' | 'CONFIRM_SET' | 'REST' | 'OVERVIEW' | 'SUMMARY'
+    // Phases: 'WARMUP' | 'COUNTDOWN_5S' | 'ACTIVE' | 'CONFIRM_SET' | 'REST' | 'OVERVIEW' | 'REVIEW' | 'SUMMARY'
     this.phase = 'WARMUP';
     this.previousPhase = 'ACTIVE';
+    this.workoutEndTime = null;
 
     // Timers & intervals
     this.activeTimer = null;
@@ -69,6 +70,7 @@ export class WorkoutView {
     this.currentSet = 1;
     this.completedSets = [];
     this.workoutStartTime = Date.now();
+    this.workoutEndTime = null;
     this.warmupElapsedSeconds = 0;
     this.isWarmupPaused = false;
     this.is5sPaused = false;
@@ -101,6 +103,23 @@ export class WorkoutView {
 
   getCurrentExercise() {
     return this.exerciseList[this.currentExIndex];
+  }
+
+  formatPreviousLog(log, ex) {
+    if (!log) return '—';
+    const unit = (appState && appState.settings && appState.settings.weightUnit) || 'kg';
+    if (ex && ex.type === 'Isometric') {
+      const sec = log.duration || log.reps || 0;
+      if (ex.weightTrackingEnabled && log.weight > 0) {
+        return `${sec}s @ ${log.weight}${unit}`;
+      }
+      return `${sec}s`;
+    }
+    const reps = log.reps || 0;
+    if (ex && ex.weightTrackingEnabled && log.weight > 0) {
+      return `${reps}r @ ${log.weight}${unit}`;
+    }
+    return `${reps}r`;
   }
 
   // --- WARMUP ---
@@ -246,7 +265,7 @@ export class WorkoutView {
         this.currentSet = 1;
         this.startRestTimer(ex.restInterval || 90);
       } else {
-        this.finishWorkout();
+        this.promptWorkoutReview();
       }
     }
   }
@@ -274,10 +293,17 @@ export class WorkoutView {
     }, 1000);
   }
 
-  finishWorkout() {
+  promptWorkoutReview() {
     this.cleanup();
-    this.phase = 'SUMMARY';
-    const totalDurationSeconds = Math.round((Date.now() - this.workoutStartTime) / 1000);
+    this.phase = 'REVIEW';
+    if (!this.workoutEndTime) {
+      this.workoutEndTime = Date.now();
+    }
+    this.render();
+  }
+
+  finishAndSaveWorkout() {
+    const totalDurationSeconds = Math.round(((this.workoutEndTime || Date.now()) - this.workoutStartTime) / 1000);
 
     appState.logWorkoutSession({
       programId: this.program.id,
@@ -286,6 +312,8 @@ export class WorkoutView {
       completedSets: this.completedSets
     });
 
+    sounds.playSetLogged();
+    this.phase = 'SUMMARY';
     this.render();
   }
 
@@ -304,6 +332,8 @@ export class WorkoutView {
       this.renderRest();
     } else if (this.phase === 'OVERVIEW') {
       this.renderOverview();
+    } else if (this.phase === 'REVIEW') {
+      this.renderReview();
     } else if (this.phase === 'SUMMARY') {
       this.renderSummary();
     }
@@ -396,6 +426,9 @@ export class WorkoutView {
 
   render5sCountdown() {
     const ex = this.getCurrentExercise();
+    const prevLog = appState.getLastExerciseLog(ex.id, this.currentSet);
+    const prevText = this.formatPreviousLog(prevLog, ex);
+
     const html = `
       <div class="flex flex-col h-full bg-[#121214] text-zinc-100 p-6 justify-between items-center text-center select-none">
         <!-- Top bar with Cancel -->
@@ -416,11 +449,18 @@ export class WorkoutView {
 
         <!-- Center 5-4-3-2-1 (Clickable to pause/resume) -->
         <div class="my-auto flex flex-col items-center justify-center">
-          <div class="text-zinc-400 text-xs font-medium tracking-wider uppercase mb-2">
+          <div class="text-zinc-400 text-xs font-medium tracking-wider uppercase mb-1">
             Set ${this.currentSet} of ${this.totalSetsForCurrentEx}
           </div>
-          <h2 class="text-2xl font-bold text-white mb-6 px-4 tracking-tight">${ex.name}</h2>
+          <h2 class="text-2xl font-bold text-white mb-2 px-4 tracking-tight">${ex.name}</h2>
           
+          <!-- Benchmark & Target -->
+          <div class="flex items-center justify-center gap-2 text-xs font-mono text-zinc-400 mb-6 bg-zinc-900/60 border border-zinc-800/80 rounded-xl px-3.5 py-1.5">
+            <span>Target: <strong class="text-zinc-200">${ex.targetValue}${ex.type === 'Isometric' ? 's' : 'r'}</strong></span>
+            <span class="text-zinc-600">•</span>
+            <span>Prev: <strong class="text-zinc-200">${prevText}</strong></span>
+          </div>
+
           <!-- Tap on timer to pause/resume -->
           <div id="timer-circle-5s" class="relative flex flex-col items-center justify-center w-56 h-56 rounded-full border-2 ${this.is5sPaused ? 'border-zinc-500 bg-[#202024]' : 'border-zinc-700 bg-[#18181b]'} cursor-pointer active:scale-95 transition shadow-lg">
             <span id="countdown-digit" class="text-8xl font-mono font-bold text-white tracking-tighter">
@@ -470,6 +510,8 @@ export class WorkoutView {
   renderActive() {
     const ex = this.getCurrentExercise();
     const isIsometric = ex.type === 'Isometric';
+    const prevLog = appState.getLastExerciseLog(ex.id, this.currentSet);
+    const prevText = this.formatPreviousLog(prevLog, ex);
 
     const html = `
       <div class="flex flex-col h-full bg-[#121214] text-zinc-100 p-5 justify-between select-none">
@@ -518,8 +560,8 @@ export class WorkoutView {
                 <span id="active-hold-digits" class="text-7xl font-mono font-bold text-white tracking-tight">
                   ${Math.ceil(this.holdRemainingSeconds)}s
                 </span>
-                <span class="text-[11px] uppercase font-mono tracking-widest text-zinc-400 mt-1">
-                  ${this.isPaused ? 'Paused • Tap to resume' : `Target: ${ex.targetValue}s`}
+                <span class="text-[11px] uppercase font-mono tracking-widest text-zinc-400 mt-1 text-center px-2">
+                  ${this.isPaused ? 'Paused • Tap to resume' : `Target: ${ex.targetValue}s • Prev: ${prevText}`}
                 </span>
               </div>
             </div>
@@ -527,11 +569,9 @@ export class WorkoutView {
             <!-- Dynamic Auto-Paced Rep Counter with High-Contrast SVG Ring (Tap to Pause) -->
             <div class="w-full flex flex-col items-center">
               <div id="timer-circle-active" class="relative w-64 h-64 flex flex-col items-center justify-center rounded-full bg-[#18181b] cursor-pointer active:scale-95 transition shadow-sm overflow-hidden border border-zinc-800">
-                <!-- High Contrast SVG Progress Ring (Issue #5 fix) -->
+                <!-- High Contrast SVG Progress Ring -->
                 <svg class="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 256 256">
-                  <!-- Track -->
                   <circle cx="128" cy="128" r="114" stroke="#27272a" stroke-width="8" fill="none" />
-                  <!-- High-contrast bright white stroke for rep progress -->
                   <circle id="rep-progress-svg" cx="128" cy="128" r="114" stroke="#ffffff" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="716.28" stroke-dashoffset="716.28" class="transition-all duration-100" />
                 </svg>
 
@@ -539,8 +579,8 @@ export class WorkoutView {
                   <span id="active-rep-count" class="text-8xl font-mono font-bold tracking-tight text-white">
                     ${this.currentRep}
                   </span>
-                  <span class="text-[11px] uppercase font-mono tracking-widest text-zinc-400 mt-1">
-                    Target: <span class="text-zinc-200 font-semibold">${this.targetReps} reps</span>
+                  <span class="text-[11px] uppercase font-mono tracking-widest text-zinc-400 mt-1 text-center px-4">
+                    Target: <span class="text-zinc-200 font-semibold">${this.targetReps}r</span> • Prev: <span class="text-zinc-200 font-semibold">${prevText}</span>
                   </span>
                   <div class="mt-2 text-xs font-mono text-zinc-400 flex items-center gap-1.5">
                     <span class="w-1.5 h-1.5 rounded-full ${this.isPaused ? 'bg-zinc-500' : 'bg-white animate-pulse'}"></span>
@@ -562,17 +602,17 @@ export class WorkoutView {
             </div>
           `}
 
-          <!-- Weight Input Bar -->
-          <div class="mt-4 w-full bg-[#18181b] border border-zinc-800 rounded-xl p-3.5 flex items-center justify-between">
+          <!-- Weight Input Bar (±0.5kg + direct keyboard typing) -->
+          <div class="mt-4 w-full bg-[#18181b] border border-zinc-800 rounded-xl p-3 flex items-center justify-between">
             <div>
               <div class="text-xs font-medium uppercase tracking-wider text-zinc-300">Weight (${appState.settings.weightUnit})</div>
               <div class="text-[11px] text-zinc-500">${ex.weightTrackingEnabled ? 'Added / Dumbbell' : 'Bodyweight'}</div>
             </div>
 
-            <div class="flex items-center gap-2">
-              <button id="btn-weight-minus" class="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 font-bold active:scale-95 text-xs">-2.5</button>
-              <input id="input-weight" type="number" step="0.5" min="0" value="${this.currentWeight}" class="w-16 bg-[#121214] border border-zinc-700 text-center font-mono font-semibold text-white text-sm py-1 rounded-lg focus:outline-none focus:border-zinc-500" />
-              <button id="btn-weight-plus" class="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 font-bold active:scale-95 text-xs">+2.5</button>
+            <div class="flex items-center gap-1.5">
+              <button id="btn-weight-minus" class="px-2.5 h-9 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold active:scale-95 text-xs font-mono">-0.5</button>
+              <input id="input-weight" type="number" step="0.5" min="0" value="${this.currentWeight}" class="w-20 bg-[#121214] border border-zinc-700 text-center font-mono font-bold text-white text-sm py-1.5 rounded-lg focus:outline-none focus:border-zinc-400" />
+              <button id="btn-weight-plus" class="px-2.5 h-9 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold active:scale-95 text-xs font-mono">+0.5</button>
             </div>
           </div>
 
@@ -618,16 +658,35 @@ export class WorkoutView {
     };
 
     const inputWeight = this.container.querySelector('#input-weight');
-    inputWeight.onchange = (e) => {
-      this.currentWeight = Math.max(0, parseFloat(e.target.value) || 0);
-    };
-    this.container.querySelector('#btn-weight-minus').onclick = () => {
-      this.currentWeight = Math.max(0, this.currentWeight - 2.5);
+    const updateWeight = (val) => {
+      this.currentWeight = Math.max(0, Math.round(val * 10) / 10);
       inputWeight.value = this.currentWeight;
+      if (ex.weightTrackingEnabled) {
+        ex.weight = this.currentWeight;
+        appState.saveExercise(ex);
+      }
+    };
+
+    inputWeight.oninput = (e) => {
+      const val = parseFloat(e.target.value);
+      if (!isNaN(val)) {
+        this.currentWeight = Math.max(0, Math.round(val * 10) / 10);
+        if (ex.weightTrackingEnabled) {
+          ex.weight = this.currentWeight;
+          appState.saveExercise(ex);
+        }
+      }
+    };
+    inputWeight.onchange = (e) => {
+      const val = parseFloat(e.target.value) || 0;
+      updateWeight(val);
+    };
+
+    this.container.querySelector('#btn-weight-minus').onclick = () => {
+      updateWeight(this.currentWeight - 0.5);
     };
     this.container.querySelector('#btn-weight-plus').onclick = () => {
-      this.currentWeight = this.currentWeight + 2.5;
-      inputWeight.value = this.currentWeight;
+      updateWeight(this.currentWeight + 0.5);
     };
 
     if (!isIsometric) {
@@ -678,6 +737,8 @@ export class WorkoutView {
   renderConfirmSet() {
     const ex = this.getCurrentExercise();
     const isIsometric = ex.type === 'Isometric';
+    const prevLog = appState.getLastExerciseLog(ex.id, this.currentSet);
+    const prevText = this.formatPreviousLog(prevLog, ex);
 
     const html = `
       <div class="flex flex-col h-full bg-[#121214] text-zinc-100 p-6 justify-between select-none">
@@ -696,41 +757,39 @@ export class WorkoutView {
             <h2 class="text-2xl font-bold text-white mt-1">${ex.name}</h2>
           </div>
 
-          <!-- Reps / Hold Seconds Confirm -->
+          <!-- Reps / Hold Seconds Confirm with direct keyboard typing and - / + -->
           <div class="bg-[#18181b] border border-zinc-800 rounded-2xl p-5 text-center space-y-3">
             <div class="text-xs font-mono uppercase tracking-wider text-zinc-400">
               ${isIsometric ? 'Hold Duration (seconds)' : 'Completed Reps'}
             </div>
 
-            <div class="flex items-center justify-center gap-4">
-              <button id="btn-confirm-minus" class="w-14 h-14 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white text-2xl font-bold active:scale-95 transition">
+            <div class="flex items-center justify-center gap-3">
+              <button id="btn-confirm-minus" class="w-12 h-12 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white text-2xl font-bold active:scale-95 transition">
                 -
               </button>
-              <div class="w-28 text-center">
-                <span id="confirm-rep-val" class="text-5xl font-mono font-bold text-white tracking-tight">
-                  ${this.confirmedReps}
-                </span>
-                <span class="block text-xs font-mono text-zinc-400 mt-1">
-                  Target: ${ex.targetValue}${isIsometric ? 's' : ''}
+              <div class="w-32 text-center">
+                <input id="input-confirm-reps" type="number" min="0" value="${this.confirmedReps}" class="w-24 bg-transparent text-center text-5xl font-mono font-bold text-white tracking-tight border-b border-zinc-700 focus:outline-none focus:border-zinc-400 pb-0.5" />
+                <span class="block text-xs font-mono text-zinc-400 mt-2">
+                  Target: ${ex.targetValue}${isIsometric ? 's' : 'r'} • Prev: ${prevText}
                 </span>
               </div>
-              <button id="btn-confirm-plus" class="w-14 h-14 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white text-2xl font-bold active:scale-95 transition">
+              <button id="btn-confirm-plus" class="w-12 h-12 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white text-2xl font-bold active:scale-95 transition">
                 +
               </button>
             </div>
           </div>
 
-          <!-- Weight Confirm -->
+          <!-- Weight Confirm with ±0.5kg and direct keyboard typing -->
           <div class="bg-[#18181b] border border-zinc-800 rounded-2xl p-4 flex items-center justify-between">
             <div>
               <div class="text-xs font-medium text-zinc-300 uppercase tracking-wider">Weight Used</div>
               <div class="text-[11px] text-zinc-500">${appState.settings.weightUnit}</div>
             </div>
 
-            <div class="flex items-center gap-2">
-              <button id="btn-confirm-weight-minus" class="w-9 h-9 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 font-bold text-xs active:scale-95">-2.5</button>
-              <input id="input-confirm-weight" type="number" step="0.5" min="0" value="${this.confirmedWeight}" class="w-16 bg-[#121214] border border-zinc-700 text-center font-mono font-semibold text-white text-sm py-1.5 rounded-lg focus:outline-none" />
-              <button id="btn-confirm-weight-plus" class="w-9 h-9 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 font-bold text-xs active:scale-95">+2.5</button>
+            <div class="flex items-center gap-1.5">
+              <button id="btn-confirm-weight-minus" class="px-2.5 h-9 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold text-xs font-mono active:scale-95">-0.5</button>
+              <input id="input-confirm-weight" type="number" step="0.5" min="0" value="${this.confirmedWeight}" class="w-20 bg-[#121214] border border-zinc-700 text-center font-mono font-bold text-white text-sm py-1.5 rounded-lg focus:outline-none focus:border-zinc-400" />
+              <button id="btn-confirm-weight-plus" class="px-2.5 h-9 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold text-xs font-mono active:scale-95">+0.5</button>
             </div>
           </div>
         </div>
@@ -746,27 +805,46 @@ export class WorkoutView {
 
     this.container.innerHTML = html;
 
-    const repValEl = this.container.querySelector('#confirm-rep-val');
+    const inputReps = this.container.querySelector('#input-confirm-reps');
+    inputReps.oninput = (e) => {
+      const val = parseInt(e.target.value, 10);
+      if (!isNaN(val)) {
+        this.confirmedReps = Math.max(0, val);
+      }
+    };
+    inputReps.onchange = (e) => {
+      this.confirmedReps = Math.max(0, parseInt(e.target.value, 10) || 0);
+      inputReps.value = this.confirmedReps;
+    };
     this.container.querySelector('#btn-confirm-minus').onclick = () => {
       this.confirmedReps = Math.max(0, this.confirmedReps - 1);
-      repValEl.innerText = this.confirmedReps;
+      inputReps.value = this.confirmedReps;
     };
     this.container.querySelector('#btn-confirm-plus').onclick = () => {
       this.confirmedReps++;
-      repValEl.innerText = this.confirmedReps;
+      inputReps.value = this.confirmedReps;
     };
 
     const inputWeight = this.container.querySelector('#input-confirm-weight');
+    const updateConfirmWeight = (val) => {
+      this.confirmedWeight = Math.max(0, Math.round(val * 10) / 10);
+      inputWeight.value = this.confirmedWeight;
+    };
+    inputWeight.oninput = (e) => {
+      const val = parseFloat(e.target.value);
+      if (!isNaN(val)) {
+        this.confirmedWeight = Math.max(0, Math.round(val * 10) / 10);
+      }
+    };
     inputWeight.onchange = (e) => {
-      this.confirmedWeight = Math.max(0, parseFloat(e.target.value) || 0);
+      const val = parseFloat(e.target.value) || 0;
+      updateConfirmWeight(val);
     };
     this.container.querySelector('#btn-confirm-weight-minus').onclick = () => {
-      this.confirmedWeight = Math.max(0, this.confirmedWeight - 2.5);
-      inputWeight.value = this.confirmedWeight;
+      updateConfirmWeight(this.confirmedWeight - 0.5);
     };
     this.container.querySelector('#btn-confirm-weight-plus').onclick = () => {
-      this.confirmedWeight = this.confirmedWeight + 2.5;
-      inputWeight.value = this.confirmedWeight;
+      updateConfirmWeight(this.confirmedWeight + 0.5);
     };
 
     this.container.querySelector('#btn-cancel-confirm').onclick = () => {
@@ -783,6 +861,8 @@ export class WorkoutView {
   renderRest() {
     const nextEx = this.getCurrentExercise();
     const isNewExercise = this.currentSet === 1;
+    const prevLog = appState.getLastExerciseLog(nextEx.id, this.currentSet);
+    const prevLogText = this.formatPreviousLog(prevLog, nextEx);
 
     const html = `
       <div class="flex flex-col h-full bg-[#121214] text-zinc-100 p-6 justify-between select-none">
@@ -802,7 +882,7 @@ export class WorkoutView {
           </div>
         </div>
 
-        <!-- Big Rest Timer (Tap to Pause/Resume - Discussion #2 Idea) -->
+        <!-- Big Rest Timer (Tap to Pause/Resume) -->
         <div class="my-auto flex flex-col items-center justify-center py-4">
           <div id="timer-circle-rest" class="relative w-72 h-72 flex flex-col items-center justify-center rounded-full border-2 ${this.isRestPaused ? 'border-zinc-500 bg-[#202024]' : 'border-zinc-700 bg-[#18181b]'} cursor-pointer active:scale-95 transition shadow-sm">
             <span id="rest-digits" class="text-8xl font-mono font-bold tracking-tighter text-white">
@@ -832,9 +912,15 @@ export class WorkoutView {
               ${isNewExercise ? 'Next Exercise' : 'Next Set'}
             </div>
             <div class="text-base font-bold text-white mt-1">${nextEx.name}</div>
-            <div class="text-xs text-zinc-400 mt-0.5 font-mono">
-              Set ${this.currentSet} of ${this.totalSetsForCurrentEx} • Target: ${nextEx.targetValue}${nextEx.type === 'Isometric' ? 's' : ' reps'}
-              ${nextEx.weightTrackingEnabled && nextEx.weight > 0 ? `• ${nextEx.weight} ${appState.settings.weightUnit}` : ''}
+            <div class="text-xs text-zinc-400 mt-1 font-mono flex flex-wrap gap-x-2 gap-y-0.5">
+              <span>Set ${this.currentSet} of ${this.totalSetsForCurrentEx}</span>
+              <span>•</span>
+              <span>Target: ${nextEx.targetValue}${nextEx.type === 'Isometric' ? 's' : ' reps'}</span>
+              ${nextEx.weightTrackingEnabled && nextEx.weight > 0 ? `<span>•</span><span>${nextEx.weight} ${appState.settings.weightUnit}</span>` : ''}
+            </div>
+            <div class="mt-2.5 pt-2 border-t border-zinc-800/80 flex items-center justify-between text-xs font-mono">
+              <span class="text-zinc-500">Previous Performance:</span>
+              <span class="text-zinc-200 font-semibold">${prevLogText}</span>
             </div>
           </div>
         </div>
@@ -985,56 +1071,73 @@ export class WorkoutView {
                   ` : ''}
                 </div>
 
-                <!-- Sets List for this Exercise -->
+                <!-- Sets Table for this Exercise (Idea #4 Column Labels) -->
                 <div class="space-y-1.5 pt-1">
+                  <!-- Column Header Labels -->
+                  <div class="grid grid-cols-12 gap-1 px-2.5 pb-1 text-[10px] font-mono uppercase text-zinc-500 font-semibold border-b border-zinc-800/80">
+                    <span class="col-span-2">SET</span>
+                    <span class="col-span-3">PREVIOUS</span>
+                    <span class="col-span-4 text-center">${ex.type === 'Isometric' ? 'HOLD (S)' : 'REPS'}</span>
+                    <span class="col-span-3 text-right">WEIGHT (${(appState.settings.weightUnit || 'kg').toUpperCase()})</span>
+                  </div>
+
                   ${Array.from({ length: ex.targetSets || 3 }, (_, sIdx) => {
                     const setNum = sIdx + 1;
                     const logged = exCompletedSets.find(s => s.setIndex === setNum);
                     const isActiveSet = isCurrentEx && setNum === this.currentSet && !logged;
+                    const prevLog = appState.getLastExerciseLog(ex.id, setNum);
+                    const prevText = this.formatPreviousLog(prevLog, ex);
 
                     if (logged) {
                       return `
-                        <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#202024] border border-zinc-700/80 text-xs">
-                          <div class="flex items-center gap-2">
-                            <span class="w-5 h-5 rounded-full bg-white text-black font-bold flex items-center justify-center text-[10px]">✓</span>
-                            <span class="font-mono text-zinc-200 font-semibold">Set ${setNum}</span>
+                        <div class="grid grid-cols-12 gap-1 items-center p-2 rounded-xl bg-[#202024] border border-zinc-700/80 text-xs">
+                          <div class="col-span-2 flex items-center gap-1 font-mono font-semibold text-zinc-200">
+                            <span class="w-4 h-4 rounded-full bg-white text-black font-bold flex items-center justify-center text-[9px]">✓</span>
+                            <span class="text-xs">#${setNum}</span>
                           </div>
 
-                          <div class="flex items-center gap-2.5 font-mono">
-                            <!-- Edit reps / hold seconds -->
-                            <div class="flex items-center gap-1">
-                              <button class="btn-adj-rep w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold active:scale-95 flex items-center justify-center text-xs" data-ex-id="${ex.id}" data-set-num="${setNum}" data-delta="-1">-</button>
-                              <span class="w-7 text-center font-bold text-white">${logged.reps}</span>
-                              <button class="btn-adj-rep w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold active:scale-95 flex items-center justify-center text-xs" data-ex-id="${ex.id}" data-set-num="${setNum}" data-delta="1">+</button>
-                              <span class="text-zinc-500 text-[10px]">${ex.type === 'Isometric' ? 's' : 'r'}</span>
-                            </div>
+                          <div class="col-span-3 font-mono text-[11px] text-zinc-400 truncate" title="${prevText}">
+                            ${prevText}
+                          </div>
 
-                            <!-- Edit weight if enabled -->
+                          <div class="col-span-4 flex items-center justify-center gap-1">
+                            <button class="btn-adj-rep w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold active:scale-95 flex items-center justify-center text-xs" data-ex-id="${ex.id}" data-set-num="${setNum}" data-delta="-1">-</button>
+                            <input type="number" min="0" value="${logged.reps}" class="input-adj-rep w-9 bg-[#121214] border border-zinc-700 text-center font-mono font-bold text-white text-xs py-0.5 rounded focus:outline-none focus:border-zinc-400" data-ex-id="${ex.id}" data-set-num="${setNum}" />
+                            <button class="btn-adj-rep w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold active:scale-95 flex items-center justify-center text-xs" data-ex-id="${ex.id}" data-set-num="${setNum}" data-delta="1">+</button>
+                          </div>
+
+                          <div class="col-span-3 flex items-center justify-end gap-1">
                             ${ex.weightTrackingEnabled ? `
-                              <div class="flex items-center gap-1 border-l border-zinc-700 pl-2">
-                                <button class="btn-adj-weight w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold active:scale-95 flex items-center justify-center text-[10px]" data-ex-id="${ex.id}" data-set-num="${setNum}" data-delta="-2.5">-</button>
-                                <span class="w-10 text-center font-bold text-white text-[11px]">${logged.weight}k</span>
-                                <button class="btn-adj-weight w-6 h-6 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold active:scale-95 flex items-center justify-center text-[10px]" data-ex-id="${ex.id}" data-set-num="${setNum}" data-delta="2.5">+</button>
-                              </div>
-                            ` : ''}
+                              <button class="btn-adj-weight w-5 h-6 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold active:scale-95 flex items-center justify-center text-[9px]" data-ex-id="${ex.id}" data-set-num="${setNum}" data-delta="-0.5">-</button>
+                              <input type="number" step="0.5" min="0" value="${logged.weight || 0}" class="input-adj-weight w-10 bg-[#121214] border border-zinc-700 text-center font-mono font-bold text-white text-[11px] py-0.5 rounded focus:outline-none focus:border-zinc-400" data-ex-id="${ex.id}" data-set-num="${setNum}" />
+                              <button class="btn-adj-weight w-5 h-6 rounded bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold active:scale-95 flex items-center justify-center text-[9px]" data-ex-id="${ex.id}" data-set-num="${setNum}" data-delta="0.5">+</button>
+                            ` : `
+                              <span class="text-zinc-500 font-mono text-[11px] pr-2">BW</span>
+                            `}
                           </div>
                         </div>
                       `;
                     } else if (isActiveSet) {
                       return `
-                        <div class="flex items-center justify-between p-2.5 rounded-xl bg-[#202024]/70 border border-zinc-500 text-xs font-mono">
-                          <div class="flex items-center gap-2">
+                        <div class="grid grid-cols-12 gap-1 items-center p-2 rounded-xl bg-[#202024]/70 border border-zinc-500 text-xs font-mono">
+                          <div class="col-span-2 flex items-center gap-1.5 text-white font-bold">
                             <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
-                            <span class="text-white font-bold">Set ${setNum} (Current)</span>
+                            <span>#${setNum}</span>
                           </div>
-                          <span class="text-zinc-400">Target: ${ex.targetValue}${ex.type === 'Isometric' ? 's' : ' reps'}</span>
+                          <div class="col-span-3 text-zinc-400 truncate">
+                            ${prevText}
+                          </div>
+                          <div class="col-span-7 text-right text-zinc-300 pr-1">
+                            Active (Target: ${ex.targetValue}${ex.type === 'Isometric' ? 's' : 'r'})
+                          </div>
                         </div>
                       `;
                     } else {
                       return `
-                        <div class="flex items-center justify-between p-2 rounded-xl border border-dashed border-zinc-800 text-zinc-500 text-xs font-mono">
-                          <span>Set ${setNum}</span>
-                          <span>Upcoming</span>
+                        <div class="grid grid-cols-12 gap-1 items-center p-2 rounded-xl border border-dashed border-zinc-800 text-zinc-500 text-xs font-mono">
+                          <div class="col-span-2">#${setNum}</div>
+                          <div class="col-span-3 truncate">${prevText}</div>
+                          <div class="col-span-7 text-right pr-1">Upcoming (${ex.targetValue}${ex.type === 'Isometric' ? 's' : 'r'})</div>
                         </div>
                       `;
                     }
@@ -1081,6 +1184,28 @@ export class WorkoutView {
       };
     });
 
+    this.container.querySelectorAll('.input-adj-rep').forEach(input => {
+      input.oninput = (e) => {
+        const exId = Number(e.currentTarget.dataset.exId);
+        const setNum = Number(e.currentTarget.dataset.setNum);
+        const val = parseInt(e.target.value, 10);
+        if (!isNaN(val)) {
+          const logged = this.completedSets.find(cs => cs.exerciseId === exId && cs.setIndex === setNum);
+          if (logged) logged.reps = Math.max(0, val);
+        }
+      };
+      input.onchange = (e) => {
+        const exId = Number(e.currentTarget.dataset.exId);
+        const setNum = Number(e.currentTarget.dataset.setNum);
+        const val = parseInt(e.target.value, 10) || 0;
+        const logged = this.completedSets.find(cs => cs.exerciseId === exId && cs.setIndex === setNum);
+        if (logged) {
+          logged.reps = Math.max(0, val);
+          input.value = logged.reps;
+        }
+      };
+    });
+
     this.container.querySelectorAll('.btn-adj-weight').forEach(btn => {
       btn.onclick = (e) => {
         const exId = Number(e.currentTarget.dataset.exId);
@@ -1088,13 +1213,47 @@ export class WorkoutView {
         const delta = Number(e.currentTarget.dataset.delta);
         const logged = this.completedSets.find(cs => cs.exerciseId === exId && cs.setIndex === setNum);
         if (logged) {
-          logged.weight = Math.max(0, logged.weight + delta);
+          logged.weight = Math.max(0, Math.round(((logged.weight || 0) + delta) * 10) / 10);
           const ex = appState.getExercise(exId);
           if (ex && ex.weightTrackingEnabled) {
             ex.weight = logged.weight;
             appState.saveExercise(ex);
           }
           this.render();
+        }
+      };
+    });
+
+    this.container.querySelectorAll('.input-adj-weight').forEach(input => {
+      input.oninput = (e) => {
+        const exId = Number(e.currentTarget.dataset.exId);
+        const setNum = Number(e.currentTarget.dataset.setNum);
+        const val = parseFloat(e.target.value);
+        if (!isNaN(val)) {
+          const logged = this.completedSets.find(cs => cs.exerciseId === exId && cs.setIndex === setNum);
+          if (logged) {
+            logged.weight = Math.max(0, Math.round(val * 10) / 10);
+            const ex = appState.getExercise(exId);
+            if (ex && ex.weightTrackingEnabled) {
+              ex.weight = logged.weight;
+              appState.saveExercise(ex);
+            }
+          }
+        }
+      };
+      input.onchange = (e) => {
+        const exId = Number(e.currentTarget.dataset.exId);
+        const setNum = Number(e.currentTarget.dataset.setNum);
+        const val = parseFloat(e.target.value) || 0;
+        const logged = this.completedSets.find(cs => cs.exerciseId === exId && cs.setIndex === setNum);
+        if (logged) {
+          logged.weight = Math.max(0, Math.round(val * 10) / 10);
+          input.value = logged.weight;
+          const ex = appState.getExercise(exId);
+          if (ex && ex.weightTrackingEnabled) {
+            ex.weight = logged.weight;
+            appState.saveExercise(ex);
+          }
         }
       };
     });
@@ -1110,6 +1269,265 @@ export class WorkoutView {
         this.currentWeight = ex.weight || 0;
         this.closeOverview();
         this.start5sCountdown();
+      };
+    });
+  }
+
+  // --- PRE-SAVE WORKOUT REVIEW (Discussion #11 Idea) ---
+  renderReview() {
+    const totalWorkoutSeconds = Math.round(((this.workoutEndTime || Date.now()) - this.workoutStartTime) / 1000);
+    const totalVolume = this.completedSets.reduce((sum, s) => sum + ((s.weight || 0) * (s.reps || 0)), 0);
+    const totalReps = this.completedSets.reduce((sum, s) => sum + (s.reps || 0), 0);
+
+    const html = `
+      <div class="flex flex-col h-full bg-[#121214] text-zinc-100 p-5 select-none overflow-hidden">
+        <!-- Top bar -->
+        <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3 flex-shrink-0">
+          <div>
+            <span class="text-[10px] font-mono uppercase tracking-widest text-zinc-400">Workout Complete • Review & Edit</span>
+            <h1 class="text-lg font-bold tracking-tight text-white truncate max-w-[220px]">${this.program.name}</h1>
+          </div>
+          <button id="btn-review-discard" class="text-xs font-mono text-zinc-400 hover:text-white py-1 px-3 bg-zinc-800/60 border border-zinc-700/60 rounded-lg">
+            Discard
+          </button>
+        </div>
+
+        <!-- Mini Stats Summary -->
+        <div class="grid grid-cols-3 gap-2 my-3 flex-shrink-0 text-center font-mono">
+          <div class="bg-[#18181b] border border-zinc-800 rounded-xl p-2.5">
+            <div class="text-[10px] uppercase text-zinc-500">Duration</div>
+            <div class="text-base font-bold text-white mt-0.5">${this.formatMinutes(totalWorkoutSeconds)}</div>
+          </div>
+          <div class="bg-[#18181b] border border-zinc-800 rounded-xl p-2.5">
+            <div class="text-[10px] uppercase text-zinc-500">Sets / Reps</div>
+            <div class="text-base font-bold text-white mt-0.5">${this.completedSets.length} / ${totalReps}</div>
+          </div>
+          <div class="bg-[#18181b] border border-zinc-800 rounded-xl p-2.5">
+            <div class="text-[10px] uppercase text-zinc-500">Volume</div>
+            <div class="text-base font-bold text-white mt-0.5">${totalVolume} ${appState.settings.weightUnit}</div>
+          </div>
+        </div>
+
+        <!-- Prompt message & Add Set Button -->
+        <div class="px-1 pb-2 text-xs text-zinc-400 flex items-center justify-between flex-shrink-0">
+          <span>Review your logged sets below:</span>
+          <button id="btn-review-add-set" class="flex items-center gap-1 text-[11px] font-mono text-zinc-200 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 px-2.5 py-1 rounded-lg active:scale-95 transition">
+            <span>+</span>
+            <span>Add Set</span>
+          </button>
+        </div>
+
+        <!-- Sets List Scrollable -->
+        <div class="flex-1 overflow-y-auto space-y-2 pr-0.5 pb-2">
+          ${this.completedSets.length === 0 ? `
+            <div class="text-center py-12 text-zinc-500 font-mono text-xs border border-dashed border-zinc-800 rounded-2xl p-6">
+              No completed sets in this session.<br>
+              Tap "+ Add Set" above to log a set manually.
+            </div>
+          ` : this.completedSets.map((s, idx) => {
+            const ex = appState.getExercise(s.exerciseId) || { weightTrackingEnabled: (s.weight > 0), type: 'Reps' };
+            const isIsometric = ex.type === 'Isometric';
+
+            return `
+              <div class="bg-[#18181b] border border-zinc-800 rounded-xl p-3 flex items-center justify-between gap-2" data-set-index="${idx}">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-[10px] font-mono font-bold text-zinc-400">#${idx + 1}</span>
+                    <span class="text-xs font-bold text-white truncate">${s.exerciseName}</span>
+                  </div>
+                  <div class="text-[11px] font-mono text-zinc-400 mt-0.5">
+                    Set ${s.setIndex} ${isIsometric ? '• Hold' : '• Reps'}
+                  </div>
+                </div>
+
+                <!-- Reps Stepper & Keyboard input -->
+                <div class="flex items-center gap-1">
+                  <button class="btn-review-rep-minus w-7 h-7 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold active:scale-95 flex items-center justify-center text-xs" data-idx="${idx}">-</button>
+                  <input type="number" min="0" value="${s.reps}" class="input-review-rep w-10 bg-[#121214] border border-zinc-700 text-center font-mono font-bold text-white text-xs py-1 rounded-lg focus:outline-none focus:border-zinc-400" data-idx="${idx}" />
+                  <button class="btn-review-rep-plus w-7 h-7 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold active:scale-95 flex items-center justify-center text-xs" data-idx="${idx}">+</button>
+                </div>
+
+                <!-- Weight Stepper & Keyboard input -->
+                <div class="flex items-center gap-1">
+                  <button class="btn-review-weight-minus w-6 h-7 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold active:scale-95 flex items-center justify-center text-[9px]" data-idx="${idx}">-</button>
+                  <input type="number" step="0.5" min="0" value="${s.weight || 0}" class="input-review-weight w-12 bg-[#121214] border border-zinc-700 text-center font-mono font-bold text-white text-xs py-1 rounded-lg focus:outline-none focus:border-zinc-400" data-idx="${idx}" />
+                  <button class="btn-review-weight-plus w-6 h-7 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-bold active:scale-95 flex items-center justify-center text-[9px]" data-idx="${idx}">+</button>
+                </div>
+
+                <!-- Delete set button (✕) -->
+                <button class="btn-review-delete-set w-7 h-7 rounded-lg bg-zinc-800/60 hover:bg-red-950/60 border border-zinc-700/60 hover:border-red-800 text-zinc-400 hover:text-red-400 active:scale-95 flex items-center justify-center text-xs transition" data-idx="${idx}" title="Delete Set">
+                  ✕
+                </button>
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <!-- Bottom Actions -->
+        <div class="pt-3 flex-shrink-0 space-y-2">
+          <button id="btn-review-confirm-save" class="w-full py-4 rounded-xl bg-white hover:bg-zinc-200 active:scale-98 transition text-black font-bold text-base tracking-wide uppercase flex items-center justify-center gap-2 shadow-lg">
+            <span>Confirm & Save Workout</span>
+            <span>✓</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    this.container.innerHTML = html;
+
+    // Discard workout handler
+    this.container.querySelector('#btn-review-discard').onclick = () => {
+      this.showExitModal();
+    };
+
+    // Add set button
+    this.container.querySelector('#btn-review-add-set').onclick = () => {
+      this.showReviewAddSetModal();
+    };
+
+    // Confirm & Save
+    this.container.querySelector('#btn-review-confirm-save').onclick = () => {
+      this.finishAndSaveWorkout();
+    };
+
+    // Rep adjustments
+    this.container.querySelectorAll('.btn-review-rep-minus').forEach(btn => {
+      btn.onclick = (e) => {
+        const idx = Number(e.currentTarget.dataset.idx);
+        if (this.completedSets[idx]) {
+          this.completedSets[idx].reps = Math.max(0, this.completedSets[idx].reps - 1);
+          this.render();
+        }
+      };
+    });
+    this.container.querySelectorAll('.btn-review-rep-plus').forEach(btn => {
+      btn.onclick = (e) => {
+        const idx = Number(e.currentTarget.dataset.idx);
+        if (this.completedSets[idx]) {
+          this.completedSets[idx].reps++;
+          this.render();
+        }
+      };
+    });
+    this.container.querySelectorAll('.input-review-rep').forEach(input => {
+      input.oninput = (e) => {
+        const idx = Number(e.currentTarget.dataset.idx);
+        const val = parseInt(e.target.value, 10);
+        if (!isNaN(val) && this.completedSets[idx]) {
+          this.completedSets[idx].reps = Math.max(0, val);
+        }
+      };
+      input.onchange = (e) => {
+        const idx = Number(e.currentTarget.dataset.idx);
+        const val = parseInt(e.target.value, 10) || 0;
+        if (this.completedSets[idx]) {
+          this.completedSets[idx].reps = Math.max(0, val);
+          input.value = this.completedSets[idx].reps;
+        }
+      };
+    });
+
+    // Weight adjustments
+    this.container.querySelectorAll('.btn-review-weight-minus').forEach(btn => {
+      btn.onclick = (e) => {
+        const idx = Number(e.currentTarget.dataset.idx);
+        if (this.completedSets[idx]) {
+          this.completedSets[idx].weight = Math.max(0, Math.round(((this.completedSets[idx].weight || 0) - 0.5) * 10) / 10);
+          this.render();
+        }
+      };
+    });
+    this.container.querySelectorAll('.btn-review-weight-plus').forEach(btn => {
+      btn.onclick = (e) => {
+        const idx = Number(e.currentTarget.dataset.idx);
+        if (this.completedSets[idx]) {
+          this.completedSets[idx].weight = Math.max(0, Math.round(((this.completedSets[idx].weight || 0) + 0.5) * 10) / 10);
+          this.render();
+        }
+      };
+    });
+    this.container.querySelectorAll('.input-review-weight').forEach(input => {
+      input.oninput = (e) => {
+        const idx = Number(e.currentTarget.dataset.idx);
+        const val = parseFloat(e.target.value);
+        if (!isNaN(val) && this.completedSets[idx]) {
+          this.completedSets[idx].weight = Math.max(0, Math.round(val * 10) / 10);
+        }
+      };
+      input.onchange = (e) => {
+        const idx = Number(e.currentTarget.dataset.idx);
+        const val = parseFloat(e.target.value) || 0;
+        if (this.completedSets[idx]) {
+          this.completedSets[idx].weight = Math.max(0, Math.round(val * 10) / 10);
+          input.value = this.completedSets[idx].weight;
+        }
+      };
+    });
+
+    // Delete set
+    this.container.querySelectorAll('.btn-review-delete-set').forEach(btn => {
+      btn.onclick = (e) => {
+        const idx = Number(e.currentTarget.dataset.idx);
+        if (this.completedSets[idx]) {
+          this.completedSets.splice(idx, 1);
+          this.render();
+        }
+      };
+    });
+  }
+
+  showReviewAddSetModal() {
+    if (document.getElementById('review-add-set-modal')) return;
+
+    const modalRoot = document.getElementById('modal-root') || document.body;
+    const modalEl = document.createElement('div');
+    modalEl.id = 'review-add-set-modal';
+    modalEl.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm select-none';
+
+    modalEl.innerHTML = `
+      <div class="bg-[#18181b] border border-zinc-700/80 rounded-2xl p-5 max-w-sm w-full space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-zinc-800 pb-3">
+          <h3 class="text-sm font-bold text-white tracking-tight">Add Set to Workout</h3>
+          <button id="btn-close-add-modal" class="text-zinc-400 hover:text-white p-1 text-xs">✕</button>
+        </div>
+
+        <div class="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+          ${this.exerciseList.map((ex) => `
+            <button class="btn-pick-add-exercise w-full text-left p-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800/80 hover:border-zinc-700 active:scale-98 transition flex items-center justify-between" data-ex-id="${ex.id}">
+              <div>
+                <div class="text-xs font-semibold text-white">${ex.name}</div>
+                <div class="text-[10px] font-mono text-zinc-400">${ex.group} • Target: ${ex.targetValue}${ex.type === 'Isometric' ? 's' : 'r'}</div>
+              </div>
+              <span class="text-xs text-zinc-400 font-mono">+ Add</span>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `;
+
+    modalRoot.appendChild(modalEl);
+
+    modalEl.querySelector('#btn-close-add-modal').onclick = () => {
+      modalEl.remove();
+    };
+
+    modalEl.querySelectorAll('.btn-pick-add-exercise').forEach(btn => {
+      btn.onclick = (e) => {
+        const exId = Number(e.currentTarget.dataset.exId);
+        const ex = this.exerciseList.find(item => item.id === exId);
+        if (ex) {
+          const count = this.completedSets.filter(s => s.exerciseId === ex.id).length;
+          this.completedSets.push({
+            exerciseId: ex.id,
+            exerciseName: ex.name,
+            setIndex: count + 1,
+            reps: ex.targetValue || 10,
+            weight: ex.weight || 0,
+            duration: ex.type === 'Isometric' ? (ex.targetValue || 30) : 0
+          });
+        }
+        modalEl.remove();
+        this.render();
       };
     });
   }
@@ -1134,7 +1552,7 @@ export class WorkoutView {
           <h3 class="text-lg font-bold text-white tracking-tight">End Workout?</h3>
           <p class="text-xs text-zinc-400 mt-1.5 leading-relaxed">
             ${hasCompletedSets
-              ? "Are you sure you want to exit? Your completed sets will be saved to your session history."
+              ? "Are you sure you want to exit? You can review and save your completed sets or discard the session."
               : "Are you sure you want to exit this workout session?"}
           </p>
         </div>
@@ -1144,7 +1562,7 @@ export class WorkoutView {
           </button>
           ${hasCompletedSets ? `
             <button id="btn-modal-finish-early" class="w-full py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold text-xs tracking-wider uppercase border border-zinc-700 transition active:scale-98">
-              End & Save Progress
+              Review & Save Progress
             </button>
           ` : ''}
           <button id="btn-modal-discard" class="w-full py-2.5 text-zinc-500 hover:text-zinc-300 text-xs font-mono transition">
@@ -1164,7 +1582,7 @@ export class WorkoutView {
     if (btnFinishEarly) {
       btnFinishEarly.onclick = () => {
         modalEl.remove();
-        this.finishWorkout();
+        this.promptWorkoutReview();
       };
     }
 

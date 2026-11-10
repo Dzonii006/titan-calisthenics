@@ -13,6 +13,7 @@ Direct, minimalist fitness roadmap focused on upper-body hypertrophy, calistheni
 ## Quick Links
 
 - 🏋️ **[Workout Routine](Workouts/Calisthenics_Rings_Program.md)**: 4-day Upper/Lower split with built-in 3–4 min warm-ups for rings, dip bar, pull-up bar, and dumbbells.
+- 🤸 **[Handstand Skill Guide](Workouts/Handstand_Progression.md)**: 4-stage roadmap to master a freestanding handstand with 5–8 min skill practice.
 - 🧘 **[Daily Posture Routine](Posture/APT_and_Core_Routine.md)**: 6-minute daily reset for Anterior Pelvic Tilt (APT) and core bracing.
 - 🥗 **[Nutrition Guide](Nutrition/Habit_Based_Nutrition_Plan.md)**: Simple hand-portion plate framework and protein targets.
 - 📈 **[Progress Tracker](Tracking/Transformation_Log.md)**: Bi-weekly measurement table and strength milestones.

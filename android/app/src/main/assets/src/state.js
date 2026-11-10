@@ -105,6 +105,38 @@ class AppState {
     return this.programs.find(p => p.id === Number(id));
   }
 
+  getLastExerciseLog(exerciseId, setIndex = null) {
+    if (!this.history || this.history.length === 0) return null;
+    const targetExId = Number(exerciseId);
+
+    for (const session of this.history) {
+      if (!session.completedSets || session.completedSets.length === 0) continue;
+
+      if (setIndex !== null) {
+        const targetSetIndex = Number(setIndex);
+        const match = session.completedSets.find(
+          s => Number(s.exerciseId) === targetExId && Number(s.setIndex) === targetSetIndex
+        );
+        if (match) {
+          return {
+            ...match,
+            sessionDate: session.date
+          };
+        }
+      } else {
+        const matches = session.completedSets.filter(s => Number(s.exerciseId) === targetExId);
+        if (matches.length > 0) {
+          return {
+            sets: matches,
+            lastSet: matches[matches.length - 1],
+            sessionDate: session.date
+          };
+        }
+      }
+    }
+    return null;
+  }
+
   saveExercise(exerciseData) {
     const idx = this.exercises.findIndex(e => e.id === exerciseData.id);
     if (idx >= 0) {

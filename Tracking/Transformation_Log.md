@@ -32,3 +32,4 @@
 | **Ring Inverted Rows** | | 10 reps (flat) | 10 reps (feet elevated) | Ring Archer Rows | |
 | **Ring Push-ups** | | 8 reps | 12 reps (RTO) | Archer / Elevated | |
 | **Dip Bar L-Sit Hold** | | 10s Tuck | 20s Tuck | 15s Full L-Sit | |
+| **Handstand** | 0s | 30s Chest-to-Wall | 10s Toe Taps / Floats | 5–10s Freestanding Hold | |
