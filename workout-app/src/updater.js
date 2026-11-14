@@ -6,7 +6,7 @@
 
 export class AppUpdater {
   constructor() {
-    this.currentVersion = 'v1.4.1';
+    this.currentVersion = 'v1.4.2';
     this.latestRelease = null;
     this.isChecking = false;
     this.isDownloading = false;

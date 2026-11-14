@@ -47,6 +47,23 @@ class AppState {
             stateUpdated = true;
           }
         }
+
+        // Migrate / synchronize modified default exercise names & cues if unchanged from legacy defaults
+        const ex4 = this.exercises.find(e => e.id === 4);
+        if (ex4 && (ex4.name === "Parallel Dip Bar Dips" || ex4.name === "Dip Bar Dips")) {
+          ex4.name = "Ring Dips (Foot-Assisted / Bodyweight)";
+          ex4.cue = "Set rings at hip height; use light toe touch on floor for safety and clean lockout.";
+          stateUpdated = true;
+        }
+        const ex7 = this.exercises.find(e => e.id === 7);
+        if (ex7 && (ex7.name === "Strict Pull-ups / Chin-ups" || ex7.name === "Strict Pull-ups")) {
+          ex7.name = "Foot-Assisted Ring Pull-ups / Chin-ups";
+          ex7.cue = "Rings at chest/head height, feet on floor. Pull chest to rings; use legs only as needed (or 5s slow negative).";
+          ex7.targetValue = 8;
+          ex7.restInterval = 90;
+          stateUpdated = true;
+        }
+
         if (stateUpdated) {
           this.save();
         }

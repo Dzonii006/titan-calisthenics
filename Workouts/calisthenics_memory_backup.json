@@ -76,7 +76,7 @@
     },
     {
       "id": 4,
-      "name": "Parallel Dip Bar Dips",
+      "name": "Ring Dips (Foot-Assisted / Bodyweight)",
       "type": "Dynamic",
       "group": "Upper Body",
       "sortOrder": 3,
@@ -130,7 +130,7 @@
     },
     {
       "id": 7,
-      "name": "Strict Pull-ups / Chin-ups",
+      "name": "Foot-Assisted Ring Pull-ups / Chin-ups",
       "type": "Dynamic",
       "group": "Upper Body",
       "sortOrder": 6,

@@ -24,7 +24,7 @@
 | **Gymnastic Ring Support Hold** | 3 | 15–20s | 60s | Elbows fully locked, rings turned slightly outward. |
 | **Ring Inverted Rows** | 3 | 8–12 | 90s | Body in straight plank, pull chest to rings, 1s pause at top. |
 | **Ring Push-ups** | 3 | 8–12 | 90s | Turn rings outward at top of lockout. |
-| **Parallel Dip Bar Dips** | 3 | 6–10 | 90s | Bar rests on heel of palms; lean torso slightly forward. |
+| **Ring Dips (Foot-Assisted or Bodyweight)** | 3 | 6–10 | 90s | Set rings at hip height; use light toe touch on floor for safety and clean lockout. |
 | **DB Lateral Raises** | 4 | 12–15 | 60s | Strict, lead with elbows, 1s pause at shoulder height. |
 | **DB Hammer Curls** | 3 | 10–12 | 60s | Neutral grip (palms facing each other), controlled lower. |
 
@@ -58,7 +58,7 @@
 ### Workout
 | Exercise | Sets | Reps | Rest | Key Cue |
 | :--- | :--- | :--- | :--- | :--- |
-| **Strict Pull-ups / Chin-ups** | 4 | 4–8 | 2 mins | Full deadhang at bottom, drive elbows down to ribs. |
+| **Foot-Assisted Ring Pull-ups / Chin-ups** | 4 | 5–8 | 90s–2 mins | Rings at chest/head height, feet on floor. Pull chest to rings; use legs only as needed (or 5s slow negative). |
 | **Ring Dips** (or Bar Dips) | 3 | 6–8 | 90s | Keep rings tight to ribs on descent; lock out at top. |
 | **Pike Push-ups** | 3 | 8–10 | 90s | Hips high in inverted V; head lowers forward like a triangle. |
 | **Ring Archer or Wide Push-ups** | 3 | 8–10 | 90s | Controlled descent; flare lats. |
@@ -88,6 +88,6 @@
 ## Quick Scaling Guide
 - **Push-ups**: Incline (easier) $\leftarrow$ Floor $\rightarrow$ Rings Turned Out (harder).
 - **Inverted Rows**: High angle $\leftarrow$ Feet flat $\rightarrow$ Feet elevated.
-- **Dips**: Bench/Feet assisted $\leftarrow$ Dip Bar $\rightarrow$ Ring Dips.
-- **Pull-ups**: Negative lowers (5s) $\leftarrow$ Chin-ups $\rightarrow$ Strict Pull-ups.
+- **Dips**: Toe/Foot-Assisted Ring Dips $\leftarrow$ Dip Bar $\rightarrow$ Full Bodyweight Ring Dips.
+- **Pull-ups**: Foot-Assisted Ring Pull-ups $\leftarrow$ 5s Slow Negatives $\rightarrow$ Strict Bodyweight Pull-ups.
 - **Progression Rule**: When you can hit the top rep count across all sets, increase reps, angle difficulty, or DB weight.

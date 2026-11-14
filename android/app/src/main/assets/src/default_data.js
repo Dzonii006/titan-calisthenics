@@ -51,7 +51,7 @@ export const DEFAULT_EXERCISES = [
   },
   {
     id: 4,
-    name: "Parallel Dip Bar Dips",
+    name: "Ring Dips (Foot-Assisted / Bodyweight)",
     type: "Dynamic",
     group: "Upper Body",
     laterality: "Bilateral",
@@ -61,7 +61,7 @@ export const DEFAULT_EXERCISES = [
     repDuration: 3.5,
     weightTrackingEnabled: true,
     weight: 0,
-    cue: "Bar rests on heel of palms; lean torso slightly forward, full depth."
+    cue: "Set rings at hip height; use light toe touch on floor for safety and clean lockout."
   },
   {
     id: 5,
@@ -93,17 +93,17 @@ export const DEFAULT_EXERCISES = [
   },
   {
     id: 7,
-    name: "Strict Pull-ups / Chin-ups",
+    name: "Foot-Assisted Ring Pull-ups / Chin-ups",
     type: "Dynamic",
     group: "Upper Body",
     laterality: "Bilateral",
     targetSets: 4,
-    targetValue: 6,
-    restInterval: 120,
+    targetValue: 8,
+    restInterval: 90,
     repDuration: 4.0,
     weightTrackingEnabled: true,
     weight: 0,
-    cue: "Full deadhang at bottom, chin clearly clears the bar, zero kicking/kipping."
+    cue: "Rings at chest/head height, feet on floor. Pull chest to rings; use legs only as needed (or 5s slow negative)."
   },
   {
     id: 8,

@@ -27,8 +27,8 @@
 | Movement | Baseline | 4-Week Target | 8-Week Target | 12-Week Target | Current PR |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Ring Support Hold** | 0s | 3 $\times$ 15s | 3 $\times$ 30s | 3 $\times$ 45s (Rings Turned Out) | |
-| **Strict Pull-ups** | | 5 reps | 8 reps | 10–12 reps | |
-| **Parallel Bar Dips** | | 8 reps | 12 reps | Ring Dips (3 $\times$ 8) | |
+| **Foot-Assisted Ring Pull-ups** | | 8 clean reps | 5s Negatives $\times$ 5 | First Strict Pull-up | |
+| **Ring Dips (Foot-assisted / BW)** | | 8 clean reps | 12 clean reps | Full BW Ring Dips (3 $\times$ 8) | |
 | **Ring Inverted Rows** | | 10 reps (flat) | 10 reps (feet elevated) | Ring Archer Rows | |
 | **Ring Push-ups** | | 8 reps | 12 reps (RTO) | Archer / Elevated | |
 | **Dip Bar L-Sit Hold** | | 10s Tuck | 20s Tuck | 15s Full L-Sit | |

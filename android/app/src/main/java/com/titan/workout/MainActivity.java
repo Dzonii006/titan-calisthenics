@@ -118,7 +118,7 @@ public class MainActivity extends Activity {
                 PackageInfo pInfo = activity.getPackageManager().getPackageInfo(activity.getPackageName(), 0);
                 return pInfo.versionName;
             } catch (Exception e) {
-                return "1.4.1";
+                return "1.4.2";
             }
         }
 
@@ -128,7 +128,7 @@ public class MainActivity extends Activity {
                 PackageInfo pInfo = activity.getPackageManager().getPackageInfo(activity.getPackageName(), 0);
                 return pInfo.versionCode;
             } catch (Exception e) {
-                return 10;
+                return 11;
             }
         }
 
@@ -201,6 +201,8 @@ public class MainActivity extends Activity {
                     result.put("isManual", isManual);
 
                     activity.runOnUiThreadJs("if (window.onUpdateCheckResult) window.onUpdateCheckResult(" + result.toString() + ");");
+                } else if (code == 404) {
+                    activity.runOnUiThreadJs("if (window.onUpdateCheckError) window.onUpdateCheckError('No release found (HTTP 404)', " + isManual + ");");
                 } else {
                     activity.runOnUiThreadJs("if (window.onUpdateCheckError) window.onUpdateCheckError('HTTP " + code + "', " + isManual + ");");
                 }
