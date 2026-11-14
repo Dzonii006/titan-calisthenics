@@ -69,6 +69,8 @@ export class WorkoutView {
     this.currentExIndex = 0;
     this.currentSet = 1;
     this.completedSets = [];
+    const firstEx = this.exerciseList[0];
+    this.totalSetsForCurrentEx = this.getTotalSets(firstEx);
     this.workoutStartTime = Date.now();
     this.workoutEndTime = null;
     this.warmupElapsedSeconds = 0;
@@ -103,6 +105,21 @@ export class WorkoutView {
 
   getCurrentExercise() {
     return this.exerciseList[this.currentExIndex];
+  }
+
+  getTotalSets(ex) {
+    if (!ex) return 3;
+    const base = ex.targetSets || 3;
+    return ex.laterality === 'Unilateral' ? base * 2 : base;
+  }
+
+  getSetSideLabel(ex, setIndex) {
+    if (!ex || ex.laterality !== 'Unilateral') return '';
+    const isOdd = (setIndex % 2 === 1);
+    const side = isOdd ? 'Left' : 'Right';
+    if (ex.group === 'Lower Body') return `${side} Leg`;
+    if (ex.group === 'Upper Body') return `${side} Arm`;
+    return `${side} Side`;
   }
 
   formatPreviousLog(log, ex) {
@@ -144,6 +161,8 @@ export class WorkoutView {
     this.phase = 'COUNTDOWN_5S';
     this.countdownSeconds = 5;
     this.is5sPaused = false;
+    const ex = this.getCurrentExercise();
+    this.totalSetsForCurrentEx = this.getTotalSets(ex);
     this.render();
     sounds.playCountdownTick();
 
@@ -169,7 +188,7 @@ export class WorkoutView {
     this.cleanup();
     this.phase = 'ACTIVE';
     const ex = this.getCurrentExercise();
-    this.totalSetsForCurrentEx = ex.targetSets || 3;
+    this.totalSetsForCurrentEx = this.getTotalSets(ex);
     this.currentWeight = ex.weight || 0;
     this.activeDuration = 0;
     this.isPaused = false;
@@ -241,6 +260,7 @@ export class WorkoutView {
   confirmAndFinishSet() {
     const ex = this.getCurrentExercise();
     const weightToLog = this.confirmedWeight || 0;
+    const sideLabel = this.getSetSideLabel(ex, this.currentSet);
 
     this.completedSets.push({
       exerciseId: ex.id,
@@ -248,7 +268,8 @@ export class WorkoutView {
       setIndex: this.currentSet,
       reps: this.confirmedReps,
       weight: weightToLog,
-      duration: Math.round(this.activeDuration)
+      duration: Math.round(this.activeDuration),
+      side: sideLabel || null
     });
 
     sounds.playSetLogged();
@@ -267,6 +288,8 @@ export class WorkoutView {
       if (this.currentExIndex < this.exerciseList.length - 1) {
         this.currentExIndex++;
         this.currentSet = 1;
+        const nextEx = this.getCurrentExercise();
+        this.totalSetsForCurrentEx = this.getTotalSets(nextEx);
         this.startRestTimer(ex.restInterval || 90);
       } else {
         this.promptWorkoutReview();
@@ -393,7 +416,7 @@ export class WorkoutView {
           </div>
 
           <div class="text-center text-xs text-zinc-400">
-            First up: <span class="text-zinc-200 font-semibold">${ex.name}</span> (${ex.targetSets} sets × ${ex.targetValue}${ex.type === 'Isometric' ? 's' : ' reps'})
+            First up: <span class="text-zinc-200 font-semibold">${ex.name}</span> (${ex.targetSets} sets × ${ex.targetValue}${ex.type === 'Isometric' ? 's' : ' reps'}${ex.laterality === 'Unilateral' ? ' / side' : ''})
           </div>
         </div>
 
@@ -454,7 +477,7 @@ export class WorkoutView {
         <!-- Center 5-4-3-2-1 (Clickable to pause/resume) -->
         <div class="my-auto flex flex-col items-center justify-center">
           <div class="text-zinc-400 text-xs font-medium tracking-wider uppercase mb-1">
-            Set ${this.currentSet} of ${this.totalSetsForCurrentEx}
+            Set ${this.currentSet} of ${this.totalSetsForCurrentEx}${this.getSetSideLabel(ex, this.currentSet) ? ` • <span class="text-white font-bold">${this.getSetSideLabel(ex, this.currentSet)}</span>` : ''}
           </div>
           <h2 class="text-2xl font-bold text-white mb-2 px-4 tracking-tight">${ex.name}</h2>
           
@@ -549,7 +572,7 @@ export class WorkoutView {
         <!-- Center Counter Display -->
         <div class="my-auto flex flex-col items-center justify-center py-2 max-w-md mx-auto w-full">
           <div class="text-zinc-400 text-xs font-medium tracking-wider uppercase mb-2">
-            Set <span class="text-white font-bold">${this.currentSet}</span> of ${this.totalSetsForCurrentEx}
+            Set <span class="text-white font-bold">${this.currentSet}</span> of ${this.totalSetsForCurrentEx}${this.getSetSideLabel(ex, this.currentSet) ? ` • <span class="text-white font-bold">${this.getSetSideLabel(ex, this.currentSet)}</span>` : ''}
           </div>
 
           ${isIsometric ? `
@@ -757,7 +780,7 @@ export class WorkoutView {
         <!-- Center Confirm Card -->
         <div class="my-auto max-w-sm mx-auto w-full space-y-6">
           <div class="text-center">
-            <span class="text-xs font-mono uppercase tracking-wider text-zinc-400">Set ${this.currentSet} of ${this.totalSetsForCurrentEx} Completed</span>
+            <span class="text-xs font-mono uppercase tracking-wider text-zinc-400">Set ${this.currentSet} of ${this.totalSetsForCurrentEx}${this.getSetSideLabel(ex, this.currentSet) ? ` (${this.getSetSideLabel(ex, this.currentSet)})` : ''} Completed</span>
             <h2 class="text-2xl font-bold text-white mt-1">${ex.name}</h2>
           </div>
 
@@ -917,7 +940,7 @@ export class WorkoutView {
             </div>
             <div class="text-base font-bold text-white mt-1">${nextEx.name}</div>
             <div class="text-xs text-zinc-400 mt-1 font-mono flex flex-wrap gap-x-2 gap-y-0.5">
-              <span>Set ${this.currentSet} of ${this.totalSetsForCurrentEx}</span>
+              <span>Set ${this.currentSet} of ${this.totalSetsForCurrentEx}${this.getSetSideLabel(nextEx, this.currentSet) ? ` (${this.getSetSideLabel(nextEx, this.currentSet)})` : ''}</span>
               <span>•</span>
               <span>Target: ${nextEx.targetValue}${nextEx.type === 'Isometric' ? 's' : ' reps'}</span>
               ${nextEx.weightTrackingEnabled && nextEx.weight > 0 ? `<span>•</span><span>${nextEx.weight} ${appState.settings.weightUnit}</span>` : ''}
@@ -1004,6 +1027,8 @@ export class WorkoutView {
   renderOverview() {
     const currentEx = this.getCurrentExercise();
     const totalWorkoutSeconds = Math.round((Date.now() - this.workoutStartTime) / 1000);
+    const existingScrollEl = this.container.querySelector('#overview-scroll-container');
+    const savedScrollTop = existingScrollEl ? existingScrollEl.scrollTop : 0;
 
     const html = `
       <div class="flex flex-col h-full bg-[#121214] text-zinc-100 p-5 select-none overflow-hidden">
@@ -1035,7 +1060,7 @@ export class WorkoutView {
                 ${this.previousPhase === 'REST' ? 'Rest Period Active' : (this.previousPhase === 'ACTIVE' ? `Current: ${currentEx.name}` : `${this.program.name}`)}
               </div>
               <div class="text-[11px] font-mono text-zinc-400">
-                ${this.previousPhase === 'REST' ? `Time Remaining: <span id="overview-rest-digits" class="text-white font-bold">${this.formatTime(this.restRemainingSeconds)}</span>` : `Set ${this.currentSet} of ${this.totalSetsForCurrentEx} • Workout: ${this.formatTime(totalWorkoutSeconds)}`}
+                ${this.previousPhase === 'REST' ? `Time Remaining: <span id="overview-rest-digits" class="text-white font-bold">${this.formatTime(this.restRemainingSeconds)}</span>` : `Set ${this.currentSet} of ${this.totalSetsForCurrentEx}${this.getSetSideLabel(currentEx, this.currentSet) ? ` (${this.getSetSideLabel(currentEx, this.currentSet)})` : ''} • Workout: ${this.formatTime(totalWorkoutSeconds)}`}
               </div>
             </div>
           </div>
@@ -1046,7 +1071,7 @@ export class WorkoutView {
         </div>
 
         <!-- Scrollable Exercises List -->
-        <div class="flex-1 overflow-y-auto space-y-4 pr-0.5 pb-2">
+        <div id="overview-scroll-container" class="flex-1 overflow-y-auto space-y-4 pr-0.5 pb-2">
           ${this.exerciseList.map((ex, exIdx) => {
             const isCurrentEx = exIdx === this.currentExIndex;
             const exCompletedSets = this.completedSets.filter(cs => cs.exerciseId === ex.id);
@@ -1062,7 +1087,7 @@ export class WorkoutView {
                     </div>
                     <h3 class="text-base font-bold text-white mt-0.5">${ex.name}</h3>
                     <div class="text-xs text-zinc-400 font-mono mt-0.5">
-                      Target: ${ex.targetSets} sets × ${ex.targetValue}${ex.type === 'Isometric' ? 's' : ' reps'}
+                      Target: ${ex.targetSets} sets × ${ex.targetValue}${ex.type === 'Isometric' ? 's' : ' reps'}${ex.laterality === 'Unilateral' ? ' / side' : ''} (${this.getTotalSets(ex)} sets)
                       ${ex.weightTrackingEnabled && ex.weight > 0 ? `• ${ex.weight}kg` : ''}
                       • ${ex.restInterval}s rest
                     </div>
@@ -1085,8 +1110,10 @@ export class WorkoutView {
                     <span class="col-span-3 text-right">WEIGHT (${(appState.settings.weightUnit || 'kg').toUpperCase()})</span>
                   </div>
 
-                  ${Array.from({ length: ex.targetSets || 3 }, (_, sIdx) => {
+                  ${Array.from({ length: this.getTotalSets(ex) }, (_, sIdx) => {
                     const setNum = sIdx + 1;
+                    const sideLabel = this.getSetSideLabel(ex, setNum);
+                    const sideShort = sideLabel ? (sideLabel.startsWith('Left') ? ' L' : ' R') : '';
                     const logged = exCompletedSets.find(s => s.setIndex === setNum);
                     const isActiveSet = isCurrentEx && setNum === this.currentSet && !logged;
                     const prevLog = appState.getLastExerciseLog(ex.id, setNum);
@@ -1097,7 +1124,7 @@ export class WorkoutView {
                         <div class="grid grid-cols-12 gap-1 items-center p-2 rounded-xl bg-[#202024] border border-zinc-700/80 text-xs">
                           <div class="col-span-2 flex items-center gap-1 font-mono font-semibold text-zinc-200">
                             <span class="w-4 h-4 rounded-full bg-white text-black font-bold flex items-center justify-center text-[9px]">✓</span>
-                            <span class="text-xs">#${setNum}</span>
+                            <span class="text-xs">#${setNum}${sideShort}</span>
                           </div>
 
                           <div class="col-span-3 font-mono text-[11px] text-zinc-400 truncate" title="${prevText}">
@@ -1126,22 +1153,22 @@ export class WorkoutView {
                         <div class="grid grid-cols-12 gap-1 items-center p-2 rounded-xl bg-[#202024]/70 border border-zinc-500 text-xs font-mono">
                           <div class="col-span-2 flex items-center gap-1.5 text-white font-bold">
                             <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
-                            <span>#${setNum}</span>
+                            <span>#${setNum}${sideShort}</span>
                           </div>
                           <div class="col-span-3 text-zinc-400 truncate">
                             ${prevText}
                           </div>
                           <div class="col-span-7 text-right text-zinc-300 pr-1">
-                            Active (Target: ${ex.targetValue}${ex.type === 'Isometric' ? 's' : 'r'})
+                            Active${sideLabel ? ` (${sideLabel})` : ` (Target: ${ex.targetValue}${ex.type === 'Isometric' ? 's' : 'r'})`}
                           </div>
                         </div>
                       `;
                     } else {
                       return `
                         <div class="grid grid-cols-12 gap-1 items-center p-2 rounded-xl border border-dashed border-zinc-800 text-zinc-500 text-xs font-mono">
-                          <div class="col-span-2">#${setNum}</div>
+                          <div class="col-span-2">#${setNum}${sideShort}</div>
                           <div class="col-span-3 truncate">${prevText}</div>
-                          <div class="col-span-7 text-right pr-1">Upcoming (${ex.targetValue}${ex.type === 'Isometric' ? 's' : 'r'})</div>
+                          <div class="col-span-7 text-right pr-1">Upcoming${sideLabel ? ` (${sideLabel})` : ` (${ex.targetValue}${ex.type === 'Isometric' ? 's' : 'r'})`}</div>
                         </div>
                       `;
                     }
@@ -1164,6 +1191,11 @@ export class WorkoutView {
 
     this.container.innerHTML = html;
 
+    const scrollEl = this.container.querySelector('#overview-scroll-container');
+    if (scrollEl && savedScrollTop > 0) {
+      scrollEl.scrollTop = savedScrollTop;
+    }
+
     // Handlers
     const returnToTimer = () => this.closeOverview();
     this.container.querySelector('#btn-close-overview').onclick = returnToTimer;
@@ -1183,7 +1215,9 @@ export class WorkoutView {
         const logged = this.completedSets.find(cs => cs.exerciseId === exId && cs.setIndex === setNum);
         if (logged) {
           logged.reps = Math.max(0, logged.reps + delta);
-          this.render();
+          const parent = btn.closest('.col-span-4') || btn.parentElement;
+          const input = parent ? parent.querySelector('.input-adj-rep') : null;
+          if (input) input.value = logged.reps;
         }
       };
     });
@@ -1223,7 +1257,9 @@ export class WorkoutView {
             ex.weight = logged.weight;
             appState.saveExercise(ex);
           }
-          this.render();
+          const parent = btn.closest('.col-span-3') || btn.parentElement;
+          const input = parent ? parent.querySelector('.input-adj-weight') : null;
+          if (input) input.value = logged.weight;
         }
       };
     });
@@ -1269,7 +1305,7 @@ export class WorkoutView {
         this.currentExIndex = targetIdx;
         this.currentSet = 1;
         const ex = this.getCurrentExercise();
-        this.totalSetsForCurrentEx = ex.targetSets || 3;
+        this.totalSetsForCurrentEx = this.getTotalSets(ex);
         this.currentWeight = ex.weight || 0;
         this.closeOverview();
         this.start5sCountdown();
@@ -1282,6 +1318,8 @@ export class WorkoutView {
     const totalWorkoutSeconds = Math.round(((this.workoutEndTime || Date.now()) - this.workoutStartTime) / 1000);
     const totalVolume = this.completedSets.reduce((sum, s) => sum + ((s.weight || 0) * (s.reps || 0)), 0);
     const totalReps = this.completedSets.reduce((sum, s) => sum + (s.reps || 0), 0);
+    const existingScrollEl = this.container.querySelector('#review-scroll-container');
+    const savedScrollTop = existingScrollEl ? existingScrollEl.scrollTop : 0;
 
     const html = `
       <div class="flex flex-col h-full bg-[#121214] text-zinc-100 p-5 select-none overflow-hidden">
@@ -1304,11 +1342,11 @@ export class WorkoutView {
           </div>
           <div class="bg-[#18181b] border border-zinc-800 rounded-xl p-2.5">
             <div class="text-[10px] uppercase text-zinc-500">Sets / Reps</div>
-            <div class="text-base font-bold text-white mt-0.5">${this.completedSets.length} / ${totalReps}</div>
+            <div id="review-stat-reps" class="text-base font-bold text-white mt-0.5">${this.completedSets.length} / ${totalReps}</div>
           </div>
           <div class="bg-[#18181b] border border-zinc-800 rounded-xl p-2.5">
             <div class="text-[10px] uppercase text-zinc-500">Volume</div>
-            <div class="text-base font-bold text-white mt-0.5">${totalVolume} ${appState.settings.weightUnit}</div>
+            <div id="review-stat-volume" class="text-base font-bold text-white mt-0.5">${totalVolume} ${appState.settings.weightUnit}</div>
           </div>
         </div>
 
@@ -1322,7 +1360,7 @@ export class WorkoutView {
         </div>
 
         <!-- Sets List Scrollable -->
-        <div class="flex-1 overflow-y-auto space-y-2 pr-0.5 pb-2">
+        <div id="review-scroll-container" class="flex-1 overflow-y-auto space-y-2 pr-0.5 pb-2">
           ${this.completedSets.length === 0 ? `
             <div class="text-center py-12 text-zinc-500 font-mono text-xs border border-dashed border-zinc-800 rounded-2xl p-6">
               No completed sets in this session.<br>
@@ -1331,6 +1369,7 @@ export class WorkoutView {
           ` : this.completedSets.map((s, idx) => {
             const ex = appState.getExercise(s.exerciseId) || { weightTrackingEnabled: (s.weight > 0), type: 'Reps' };
             const isIsometric = ex.type === 'Isometric';
+            const sideLabel = s.side || (ex.laterality === 'Unilateral' ? this.getSetSideLabel(ex, s.setIndex) : '');
 
             return `
               <div class="bg-[#18181b] border border-zinc-800 rounded-xl p-3 flex items-center justify-between gap-2" data-set-index="${idx}">
@@ -1340,7 +1379,7 @@ export class WorkoutView {
                     <span class="text-xs font-bold text-white truncate">${s.exerciseName}</span>
                   </div>
                   <div class="text-[11px] font-mono text-zinc-400 mt-0.5">
-                    Set ${s.setIndex} ${isIsometric ? '• Hold' : '• Reps'}
+                    Set ${s.setIndex}${sideLabel ? ` • ${sideLabel}` : ''} ${isIsometric ? '• Hold' : '• Reps'}
                   </div>
                 </div>
 
@@ -1379,6 +1418,11 @@ export class WorkoutView {
 
     this.container.innerHTML = html;
 
+    const scrollEl = this.container.querySelector('#review-scroll-container');
+    if (scrollEl && savedScrollTop > 0) {
+      scrollEl.scrollTop = savedScrollTop;
+    }
+
     // Discard workout handler
     this.container.querySelector('#btn-review-discard').onclick = () => {
       this.showExitModal();
@@ -1394,13 +1438,25 @@ export class WorkoutView {
       this.finishAndSaveWorkout();
     };
 
+    const updateReviewStats = () => {
+      const curReps = this.completedSets.reduce((sum, s) => sum + (s.reps || 0), 0);
+      const curVol = this.completedSets.reduce((sum, s) => sum + ((s.weight || 0) * (s.reps || 0)), 0);
+      const repsEl = this.container.querySelector('#review-stat-reps');
+      if (repsEl) repsEl.innerText = `${this.completedSets.length} / ${curReps}`;
+      const volEl = this.container.querySelector('#review-stat-volume');
+      if (volEl) volEl.innerText = `${curVol} ${appState.settings.weightUnit}`;
+    };
+
     // Rep adjustments
     this.container.querySelectorAll('.btn-review-rep-minus').forEach(btn => {
       btn.onclick = (e) => {
         const idx = Number(e.currentTarget.dataset.idx);
         if (this.completedSets[idx]) {
-          this.completedSets[idx].reps = Math.max(0, this.completedSets[idx].reps - 1);
-          this.render();
+          this.completedSets[idx].reps = Math.max(0, (this.completedSets[idx].reps || 0) - 1);
+          const parent = btn.parentElement;
+          const input = parent ? parent.querySelector('.input-review-rep') : null;
+          if (input) input.value = this.completedSets[idx].reps;
+          updateReviewStats();
         }
       };
     });
@@ -1408,8 +1464,11 @@ export class WorkoutView {
       btn.onclick = (e) => {
         const idx = Number(e.currentTarget.dataset.idx);
         if (this.completedSets[idx]) {
-          this.completedSets[idx].reps++;
-          this.render();
+          this.completedSets[idx].reps = (this.completedSets[idx].reps || 0) + 1;
+          const parent = btn.parentElement;
+          const input = parent ? parent.querySelector('.input-review-rep') : null;
+          if (input) input.value = this.completedSets[idx].reps;
+          updateReviewStats();
         }
       };
     });
@@ -1419,6 +1478,7 @@ export class WorkoutView {
         const val = parseInt(e.target.value, 10);
         if (!isNaN(val) && this.completedSets[idx]) {
           this.completedSets[idx].reps = Math.max(0, val);
+          updateReviewStats();
         }
       };
       input.onchange = (e) => {
@@ -1427,6 +1487,7 @@ export class WorkoutView {
         if (this.completedSets[idx]) {
           this.completedSets[idx].reps = Math.max(0, val);
           input.value = this.completedSets[idx].reps;
+          updateReviewStats();
         }
       };
     });
@@ -1437,7 +1498,10 @@ export class WorkoutView {
         const idx = Number(e.currentTarget.dataset.idx);
         if (this.completedSets[idx]) {
           this.completedSets[idx].weight = Math.max(0, Math.round(((this.completedSets[idx].weight || 0) - 0.5) * 10) / 10);
-          this.render();
+          const parent = btn.parentElement;
+          const input = parent ? parent.querySelector('.input-review-weight') : null;
+          if (input) input.value = this.completedSets[idx].weight;
+          updateReviewStats();
         }
       };
     });
@@ -1446,7 +1510,10 @@ export class WorkoutView {
         const idx = Number(e.currentTarget.dataset.idx);
         if (this.completedSets[idx]) {
           this.completedSets[idx].weight = Math.max(0, Math.round(((this.completedSets[idx].weight || 0) + 0.5) * 10) / 10);
-          this.render();
+          const parent = btn.parentElement;
+          const input = parent ? parent.querySelector('.input-review-weight') : null;
+          if (input) input.value = this.completedSets[idx].weight;
+          updateReviewStats();
         }
       };
     });
@@ -1456,6 +1523,7 @@ export class WorkoutView {
         const val = parseFloat(e.target.value);
         if (!isNaN(val) && this.completedSets[idx]) {
           this.completedSets[idx].weight = Math.max(0, Math.round(val * 10) / 10);
+          updateReviewStats();
         }
       };
       input.onchange = (e) => {
@@ -1464,6 +1532,7 @@ export class WorkoutView {
         if (this.completedSets[idx]) {
           this.completedSets[idx].weight = Math.max(0, Math.round(val * 10) / 10);
           input.value = this.completedSets[idx].weight;
+          updateReviewStats();
         }
       };
     });
@@ -1521,13 +1590,16 @@ export class WorkoutView {
         const ex = this.exerciseList.find(item => item.id === exId);
         if (ex) {
           const count = this.completedSets.filter(s => s.exerciseId === ex.id).length;
+          const setIndex = count + 1;
+          const sideLabel = this.getSetSideLabel(ex, setIndex);
           this.completedSets.push({
             exerciseId: ex.id,
             exerciseName: ex.name,
-            setIndex: count + 1,
+            setIndex: setIndex,
             reps: ex.targetValue || 10,
             weight: ex.weight || 0,
-            duration: ex.type === 'Isometric' ? (ex.targetValue || 30) : 0
+            duration: ex.type === 'Isometric' ? (ex.targetValue || 30) : 0,
+            side: sideLabel || null
           });
         }
         modalEl.remove();

@@ -70,8 +70,8 @@ export class HistoryView {
                   <div class="space-y-1 pt-1 max-h-32 overflow-y-auto pr-1">
                     ${session.completedSets.map(s => `
                       <div class="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-lg bg-[#202024]/70">
-                        <span class="text-zinc-300 truncate max-w-[170px]">${s.exerciseName} (Set ${s.setIndex})</span>
-                        <span class="font-mono text-zinc-400 font-medium">${s.reps} reps ${s.weight > 0 ? `@ ${s.weight}kg` : ''}</span>
+                        <span class="text-zinc-300 truncate max-w-[170px]">${s.exerciseName} (Set ${s.setIndex}${s.side ? ` • ${s.side}` : ''})</span>
+                        <span class="font-mono text-zinc-400 font-medium">${s.reps} reps ${s.weight > 0 ? `@ ${s.weight}${appState.settings.weightUnit || 'kg'}` : ''}</span>
                       </div>
                     `).join('')}
                   </div>

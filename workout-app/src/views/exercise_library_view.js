@@ -64,13 +64,18 @@ export class ExerciseLibraryView {
                     <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700/50">
                       ${ex.type}
                     </span>
+                    ${ex.laterality === 'Unilateral' ? `
+                      <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700/50 font-medium">
+                        Unilateral
+                      </span>
+                    ` : ''}
                   </div>
                   <h3 class="text-base font-semibold text-white mt-1.5">${ex.name}</h3>
                 </div>
 
                 <div class="text-right font-mono">
                   <div class="text-sm font-semibold text-white">
-                    ${ex.targetSets} × ${ex.targetValue}${ex.type === 'Isometric' ? 's' : ''}
+                    ${ex.targetSets} × ${ex.targetValue}${ex.type === 'Isometric' ? 's' : ''}${ex.laterality === 'Unilateral' ? ' / side' : ''}
                   </div>
                   <div class="text-[11px] text-zinc-400">
                     Rest: ${ex.restInterval}s
@@ -126,6 +131,7 @@ export class ExerciseLibraryView {
           name: '',
           group: 'Upper Body',
           type: 'Dynamic',
+          laterality: 'Bilateral',
           targetSets: 3,
           targetValue: 10,
           restInterval: 60,
@@ -167,10 +173,10 @@ export class ExerciseLibraryView {
               <input id="form-name" type="text" required value="${this.editingExercise.name || ''}" class="w-full bg-[#121214] border border-zinc-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-zinc-500" />
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-3 gap-2">
               <div>
                 <label class="block text-xs font-mono uppercase text-zinc-400 mb-1">Group</label>
-                <select id="form-group" class="w-full bg-[#121214] border border-zinc-700 rounded-xl px-3 py-2 text-white text-sm">
+                <select id="form-group" class="w-full bg-[#121214] border border-zinc-700 rounded-xl px-2 py-2 text-white text-xs truncate">
                   ${(appState.groups || []).map(g => `
                     <option value="${g.name}" ${this.editingExercise.group === g.name ? 'selected' : ''}>${g.name}</option>
                   `).join('')}
@@ -179,9 +185,17 @@ export class ExerciseLibraryView {
 
               <div>
                 <label class="block text-xs font-mono uppercase text-zinc-400 mb-1">Type</label>
-                <select id="form-type" class="w-full bg-[#121214] border border-zinc-700 rounded-xl px-3 py-2 text-white text-sm">
-                  <option value="Dynamic" ${this.editingExercise.type === 'Dynamic' ? 'selected' : ''}>Dynamic (Reps)</option>
-                  <option value="Isometric" ${this.editingExercise.type === 'Isometric' ? 'selected' : ''}>Isometric (Hold / Sec)</option>
+                <select id="form-type" class="w-full bg-[#121214] border border-zinc-700 rounded-xl px-2 py-2 text-white text-xs">
+                  <option value="Dynamic" ${this.editingExercise.type === 'Dynamic' ? 'selected' : ''}>Dynamic</option>
+                  <option value="Isometric" ${this.editingExercise.type === 'Isometric' ? 'selected' : ''}>Isometric</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-mono uppercase text-zinc-400 mb-1">Laterality</label>
+                <select id="form-laterality" class="w-full bg-[#121214] border border-zinc-700 rounded-xl px-2 py-2 text-white text-xs">
+                  <option value="Bilateral" ${(this.editingExercise.laterality || 'Bilateral') === 'Bilateral' ? 'selected' : ''}>Bilateral</option>
+                  <option value="Unilateral" ${this.editingExercise.laterality === 'Unilateral' ? 'selected' : ''}>Unilateral</option>
                 </select>
               </div>
             </div>
@@ -260,6 +274,7 @@ export class ExerciseLibraryView {
         const name = document.getElementById('form-name').value.trim();
         const group = document.getElementById('form-group').value;
         const type = document.getElementById('form-type').value;
+        const laterality = document.getElementById('form-laterality').value || 'Bilateral';
         const targetSets = parseInt(document.getElementById('form-sets').value) || 3;
         const targetValue = parseInt(document.getElementById('form-target').value) || 10;
         const restInterval = parseInt(document.getElementById('form-rest').value) || 60;
@@ -273,6 +288,7 @@ export class ExerciseLibraryView {
           name,
           group,
           type,
+          laterality,
           targetSets,
           targetValue,
           restInterval,

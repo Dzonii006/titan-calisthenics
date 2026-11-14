@@ -27,7 +27,7 @@ export class RoutinesView {
         <div class="space-y-3.5">
           ${programs.map(prog => {
             const exercises = prog.exerciseIds.map(id => appState.getExercise(id)).filter(Boolean);
-            const totalSets = exercises.reduce((sum, e) => sum + (e.targetSets || 3), 0);
+            const totalSets = exercises.reduce((sum, e) => sum + (e.laterality === 'Unilateral' ? (e.targetSets || 3) * 2 : (e.targetSets || 3)), 0);
             const isExpanded = this.expandedRoutineId === prog.id;
 
             return `
@@ -71,8 +71,8 @@ export class RoutinesView {
                             <span class="text-zinc-200 font-medium">${ex.name}</span>
                           </div>
                           <div class="font-mono text-zinc-400 text-[11px]">
-                            ${ex.targetSets} × ${ex.targetValue}${ex.type === 'Isometric' ? 's' : ''}
-                            <span class="text-zinc-500">(${ex.restInterval}s)</span>
+                            ${ex.targetSets} × ${ex.targetValue}${ex.type === 'Isometric' ? 's' : ''}${ex.laterality === 'Unilateral' ? ' / side' : ''}
+                            <span class="text-zinc-500">(${ex.laterality === 'Unilateral' ? (ex.targetSets || 3) * 2 : (ex.targetSets || 3)} sets • ${ex.restInterval}s)</span>
                           </div>
                         </div>
                       `).join('')}

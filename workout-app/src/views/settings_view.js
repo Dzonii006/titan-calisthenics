@@ -115,7 +115,7 @@ export class SettingsView {
         </div>
 
         <div class="text-center text-[11px] font-mono text-zinc-500 pt-2">
-          Titan Calisthenics • v1.3.1
+          Titan Calisthenics • v1.4.0
         </div>
       </div>
     `;
