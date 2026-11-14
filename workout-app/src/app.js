@@ -1,4 +1,5 @@
 import { appState } from './state.js';
+import { appUpdater } from './updater.js';
 import { RoutinesView } from './views/routines_view.js';
 import { ExerciseLibraryView } from './views/exercise_library_view.js';
 import { HistoryView } from './views/history_view.js';
@@ -99,4 +100,9 @@ class App {
 // Start app on DOM load
 window.addEventListener('DOMContentLoaded', () => {
   new App();
+
+  // Background update check after app startup
+  setTimeout(() => {
+    appUpdater.checkForUpdates(false);
+  }, 3000);
 });

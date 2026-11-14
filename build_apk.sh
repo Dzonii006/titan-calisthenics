@@ -45,7 +45,7 @@ javac --release 8 \
   -d build/obj \
   -cp "$ANDROID_JAR" \
   build/gen/com/titan/workout/R.java \
-  android/app/src/main/java/com/titan/workout/MainActivity.java
+  android/app/src/main/java/com/titan/workout/*.java
 
 # 4. Dex bytecode with D8
 echo "⚙️ Step 4: Converting to Dalvik Executable (classes.dex)..."

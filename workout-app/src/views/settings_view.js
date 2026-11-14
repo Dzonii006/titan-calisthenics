@@ -1,6 +1,7 @@
 import { appState } from '../state.js';
 import { sounds } from '../sound.js';
 import { wakeLock } from '../wakelock.js';
+import { appUpdater } from '../updater.js';
 
 export class SettingsView {
   constructor(container) {
@@ -114,8 +115,16 @@ export class SettingsView {
           </div>
         </div>
 
-        <div class="text-center text-[11px] font-mono text-zinc-500 pt-2">
-          Titan Calisthenics • v1.4.0
+        <div class="text-center text-[11px] font-mono text-zinc-500 pt-3 space-y-2.5">
+          <div>Titan Calisthenics • ${appUpdater.getCurrentVersion()}</div>
+          <div>
+            <button id="btn-check-updates" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 text-xs font-mono active:scale-95 transition inline-flex items-center gap-1.5 shadow-sm">
+              <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span id="btn-check-updates-text">Check for Updates</span>
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -125,6 +134,20 @@ export class SettingsView {
   }
 
   attachEvents() {
+    const btnCheckUpdates = this.container.querySelector('#btn-check-updates');
+    if (btnCheckUpdates) {
+      btnCheckUpdates.onclick = () => {
+        const textEl = this.container.querySelector('#btn-check-updates-text');
+        if (textEl) textEl.innerText = 'Checking...';
+        btnCheckUpdates.disabled = true;
+        appUpdater.checkForUpdates(true);
+        setTimeout(() => {
+          if (textEl) textEl.innerText = 'Check for Updates';
+          btnCheckUpdates.disabled = false;
+        }, 4000);
+      };
+    }
+
     const toggleSound = this.container.querySelector('#toggle-sound');
     if (toggleSound) {
       toggleSound.onchange = (e) => {
